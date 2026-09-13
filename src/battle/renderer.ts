@@ -291,9 +291,9 @@ export class BattleRenderer {
     // 战技点
     this.drawSp();
     // 行动限制
-    ctx.font = '14px system-ui';
+    ctx.font = 'bold 17px system-ui';
     ctx.fillStyle = this.enemyActions > this.limit - 4 ? '#ff8888' : 'rgba(255,255,255,0.7)';
-    ctx.fillText(`敌方行动 ${this.enemyActions}/${this.limit}`, W / 2 - 50, 88);
+    ctx.fillText(`敌方行动 ${this.enemyActions}/${this.limit}`, W / 2 - 60, 88);
 
     // 单位
     for (const v of this.views) {
@@ -316,7 +316,7 @@ export class BattleRenderer {
     this.floaters = this.floaters.filter(f => ts - f.born < f.life);
     for (const f of this.floaters) {
       const p = (ts - f.born) / f.life;
-      ctx.font = 'bold 20px system-ui';
+      ctx.font = 'bold 23px system-ui';
       ctx.fillStyle = f.color;
       ctx.globalAlpha = 1 - p * p;
       ctx.fillText(f.text, f.x - f.text.length * 5, f.y - p * 36);
@@ -326,8 +326,8 @@ export class BattleRenderer {
 
   private drawActionStrip(ts: number): void {
     const ctx = this.ctx;
-    ctx.font = '12px system-ui';
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.font = 'bold 15px system-ui';
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.fillText('行动顺序', 20, 26);
     let n = 0;
     for (let i = this.evIdx; i < this.events.length && n < 8; i++) {
@@ -343,6 +343,7 @@ export class BattleRenderer {
       ctx.fill();
       ctx.globalAlpha = 1;
       ctx.fillStyle = '#fff';
+      ctx.font = 'bold 13px system-ui';
       ctx.fillText(v.name.slice(0, 3), x + 2, 76);
       n++;
     }
@@ -350,12 +351,12 @@ export class BattleRenderer {
 
   private drawSp(): void {
     const ctx = this.ctx;
-    ctx.font = '13px system-ui';
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.font = 'bold 15px system-ui';
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.fillText('战技点', 20, 108);
     for (let i = 0; i < this.spMax; i++) {
       ctx.beginPath();
-      ctx.arc(72 + i * 24, 104, 8, 0, Math.PI * 2);
+      ctx.arc(78 + i * 26, 104, 9, 0, Math.PI * 2);
       ctx.fillStyle = i < this.sp ? '#ffd166' : 'rgba(255,255,255,0.15)';
       ctx.fill();
     }
@@ -384,16 +385,16 @@ export class BattleRenderer {
     ctx.stroke();
 
     if (v.boss) {
-      ctx.font = 'bold 13px system-ui';
+      ctx.font = 'bold 15px system-ui';
       ctx.fillStyle = '#ffd166';
-      ctx.fillText('首领', x - 14, y - r - 8);
+      ctx.fillText('首领', x - 16, y - r - 8);
     }
 
     // 名字
-    ctx.font = 'bold 14px system-ui';
+    ctx.font = 'bold 16px system-ui';
     ctx.fillStyle = '#fff';
     ctx.textAlign = 'center';
-    ctx.fillText(v.name, x, y + r + 24);
+    ctx.fillText(v.name, x, y + r + 26);
     ctx.textAlign = 'left';
 
     // 血条
@@ -410,9 +411,9 @@ export class BattleRenderer {
       ctx.fillStyle = '#7db8e8';
       ctx.fillRect(bx, by - 5, bw * sh, 4);
     }
-    ctx.font = '10px system-ui';
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    ctx.fillText(`${Math.max(0, Math.round(v.hp))}`, x - 14, by + 20);
+    ctx.font = 'bold 13px system-ui';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillText(`${Math.max(0, Math.round(v.hp))}`, x - 16, by + 22);
 
     // 终结技能量环（我方）
     if (v.side === 'ally' && v.maxEnergy > 0 && v.alive) {
@@ -422,16 +423,16 @@ export class BattleRenderer {
       ctx.lineWidth = 3.5;
       ctx.stroke();
       if (v.energy >= v.maxEnergy) {
-        ctx.font = 'bold 11px system-ui';
+        ctx.font = 'bold 13px system-ui';
         ctx.fillStyle = '#ffd166';
-        ctx.fillText('终结技!', x - 22, y - r - 6);
+        ctx.fillText('终结技!', x - 26, y - r - 6);
       }
     }
 
     // 持续伤害/增益图标
     let ix = x - (v.dots + (v.hasBuff ? 1 : 0) + (v.hasDebuff ? 1 : 0)) * 9;
     for (let i = 0; i < v.dots; i++) {
-      ctx.font = '12px system-ui';
+      ctx.font = '14px system-ui';
       ctx.fillText('⚡', ix, y - r - 6);
       ix += 16;
     }
