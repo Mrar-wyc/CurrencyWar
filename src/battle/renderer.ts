@@ -490,9 +490,21 @@ export class BattleRenderer {
         ctx.stroke();
         ctx.globalAlpha = 0.75;
       }
-      ctx.font = `bold ${big ? 16 : 14}px ${FONT}`;
+      ctx.font = `bold ${big ? 16 : 15}px ${FONT}`;
       ctx.fillStyle = '#fff';
-      ctx.fillText(v.name.slice(0, 4), cx + r + 10, cy + 6);
+      // 名字按可用宽度截断（最长 5~6 字，超出加省略号），避免硬切半字
+      const maxW = big ? 180 : 172;
+      let label = v.name;
+      while (label.length > 1 && ctx.measureText(label).width > maxW) {
+        label = label.slice(0, -1);
+      }
+      if (label !== v.name) {
+        while (label.length > 1 && ctx.measureText(label + '…').width > maxW) {
+          label = label.slice(0, -1);
+        }
+        label += '…';
+      }
+      ctx.fillText(label, cx + r + 10, cy + 6);
       ctx.globalAlpha = 1;
       n++;
     }
