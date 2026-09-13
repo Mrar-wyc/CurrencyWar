@@ -52,11 +52,13 @@
 
 ## 3. 新增装备
 
-`src/data/equipment.ts`：`EquipDef { id, name, tier, color, desc, scope: 'unit'|'team', flags, recipe? }`。
+`src/data/equipment.ts`：`EquipDef { id, name, tier, color, desc, scope: 'unit'|'team', flags, recipe?, emblemTrait? }`。
 
 - `scope: 'unit'` 只加穿戴者（flags 限 UnitFlags 字段）；`scope: 'team'` 全队（可含 TeamFlags 字段，如战意勋章）
-- `recipe: [idA, idB]` 定义进阶合成（两件简易）；奖励节点掉落由 `match.ts rollRewards` 的概率控制
-- 图鉴/背包合成/穿戴 UI 全自动。新 flags 字段需同步 `UnitFlags`/`TeamFlags`、`EMPTY_*`、engine
+- `recipe: [idA, idB]` 定义进阶合成（两件简易）；奖励节点掉落由 `match.ts rollRewards` 的概率控制（现：50%简易/22%金8/14%进阶/7%星徽/7%金15）
+- **星徽**：`tier: 'emblem'` + `emblemTrait: '<羁绊id>'`——穿戴者加入羁绊（`synergy.ts countTraits` 自动计数+1），flags 照常生效；不可合成，图鉴/背包/奖励卡显示 ★
+- **财富宝钻**：非装备，`MatchState.wealthGem`（resolveBattle 首个 boss 胜利发放）；后台容量统一走 `match.ts backCapacity(st)`，勿直引 `CFG.backSlots`
+- 图鉴/背包合成/穿戴 UI 全自动。新 flags 字段需同步 `UnitFlags`/`TeamFlags`、`EMPTY_*`、engine（含 CombatUnit 构造点 battle-build.ts 三处与 core.test.ts 的 mkEnemy）
 
 ## 4. 新增敌人 / 调整节点
 
