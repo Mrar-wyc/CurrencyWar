@@ -24,4 +24,4 @@ android/capacitor-cordova-android-plugins/
 # 系统杂项
 .DS_Store
 Thumbs.db
-ui-shots
+.ui-shots/

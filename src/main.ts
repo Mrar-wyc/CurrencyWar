@@ -102,10 +102,16 @@ const ctx: AppCtx = {
   }
 };
 
+/** 上次渲染的「屏幕:阶段」key——仅变化时播淡入动画，点击刷新不重播防屏闪 */
+let lastRenderKey = '';
+
 function render(): void {
   const app = document.getElementById('app')!;
   clear(app);
-  const stage = h('div', { class: 'stage' });
+  const key = `${screen}:${st?.phase ?? ''}:${pendingBattle ? 'battle' : ''}`;
+  const changed = key !== lastRenderKey;
+  lastRenderKey = key;
+  const stage = h('div', { class: `stage${changed ? ' stage-anim' : ''}` });
   app.append(stage);
   fitStage();
 
@@ -173,7 +179,7 @@ function render(): void {
 function fitStage(): void {
   const stage = document.querySelector('.stage') as HTMLElement | null;
   if (!stage) return;
-  const s = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+  const s = Math.min(window.innerWidth / 1440, window.innerHeight / 720);
   stage.style.transform = `translate(-50%, -50%) scale(${s})`;
   let rotate = document.getElementById('rotate-hint');
   if (window.innerHeight > window.innerWidth * 1.05) {

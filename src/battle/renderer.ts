@@ -48,7 +48,7 @@ interface Bolt {
   color: string;
 }
 
-const W = 1280;
+const W = 1440;
 /** 画布高 = 720 - 46px DOM 顶条，保证 1:1 不变形 */
 const H = 674;
 
@@ -110,10 +110,10 @@ export class BattleRenderer {
       this.views.push(v);
       this.byUid.set(u.uid, v);
     }
-    // 后台支援单位：画面左下缘横排（不参战站位，仅施技演出）
+    // 后台支援单位：画面左下缘横排（不参战站位，仅施技演出；y 避开我方底排 HUD）
     for (const b of this.backers) {
       const x = 56 + b.pos * 84;
-      const y = H - 52;
+      const y = H - 46;
       const v: UnitView = {
         uid: b.uid, name: b.name, side: 'ally', pos: b.pos, color: b.color,
         maxHp: b.maxHp, hp: b.hp, shield: 0, maxEnergy: 0, energy: 0,
@@ -135,7 +135,8 @@ export class BattleRenderer {
     }
     const col = Math.floor(pos / 3);
     const row = pos % 3;
-    return { x: 300 + col * 140, y: 250 + row * 135, r: 40 };
+    // 我方整体上移，底排 HUD（名字/血条）与左下后台支援栏脱开
+    return { x: 300 + col * 140, y: 235 + row * 135, r: 40 };
   }
 
   setSpeed(s: number): void {
@@ -319,8 +320,8 @@ export class BattleRenderer {
     const cy = 400;
     ctx.save();
     ctx.beginPath();
-    ctx.ellipse(cx, cy, 540, 218, 0, 0, Math.PI * 2);
-    const arena = ctx.createRadialGradient(cx, cy, 60, cx, cy, 540);
+    ctx.ellipse(cx, cy, 640, 218, 0, 0, Math.PI * 2);
+    const arena = ctx.createRadialGradient(cx, cy, 60, cx, cy, 640);
     arena.addColorStop(0, 'rgba(122,110,240,0.30)');
     arena.addColorStop(0.7, 'rgba(90,80,200,0.14)');
     arena.addColorStop(1, 'rgba(70,60,170,0.05)');
@@ -334,26 +335,26 @@ export class BattleRenderer {
     ctx.strokeStyle = 'rgba(180,170,255,0.14)';
     for (let i = -4; i <= 4; i++) {
       ctx.beginPath();
-      ctx.moveTo(cx + i * 120, cy - 210);
-      ctx.lineTo(cx + i * 165, cy + 214);
+      ctx.moveTo(cx + i * 135, cy - 210);
+      ctx.lineTo(cx + i * 185, cy + 214);
       ctx.stroke();
     }
     for (const k of [-140, -70, 0, 70, 140]) {
       ctx.beginPath();
-      ctx.ellipse(cx, cy + k, 540 * (1 - Math.abs(k) / 320), 218 * (1 - Math.abs(k) / 320), 0, 0, Math.PI * 2);
+      ctx.ellipse(cx, cy + k, 640 * (1 - Math.abs(k) / 320), 218 * (1 - Math.abs(k) / 320), 0, 0, Math.PI * 2);
       ctx.stroke();
     }
     // 敌我半场微光（我左紫 / 敌右红）
-    const allyGlow = ctx.createRadialGradient(320, 380, 30, 320, 380, 420);
+    const allyGlow = ctx.createRadialGradient(360, 380, 30, 360, 380, 460);
     allyGlow.addColorStop(0, 'rgba(138,143,245,0.14)');
     allyGlow.addColorStop(1, 'rgba(138,143,245,0)');
     ctx.fillStyle = allyGlow;
-    ctx.fillRect(0, 0, 640, H);
-    const enemyGlow = ctx.createRadialGradient(980, 380, 30, 980, 380, 420);
+    ctx.fillRect(0, 0, W / 2, H);
+    const enemyGlow = ctx.createRadialGradient(W - 360, 380, 30, W - 360, 380, 460);
     enemyGlow.addColorStop(0, 'rgba(255,120,120,0.10)');
     enemyGlow.addColorStop(1, 'rgba(255,120,120,0)');
     ctx.fillStyle = enemyGlow;
-    ctx.fillRect(640, 0, 640, H);
+    ctx.fillRect(W / 2, 0, W / 2, H);
     ctx.restore();
 
     // 竖排行动条（左上，官方样式）
@@ -414,7 +415,7 @@ export class BattleRenderer {
     if (this.backers.length) {
       ctx.font = `bold 14px ${FONT}`;
       ctx.fillStyle = 'rgba(110,220,200,0.85)';
-      ctx.fillText('后台支援', 20, H - 78);
+      ctx.fillText('后台支援', 20, H - 72);
     }
 
     // 战技点（右下，官方位置）
@@ -464,12 +465,12 @@ export class BattleRenderer {
     }
   }
 
-  /** 左上角竖排行动条：第一个大金框，其余小（带深色底托） */
+  /** 左上角竖排行动条：第一个大金框，其余小（带深色底托）；整体下移避开顶部横幅区 */
   private drawActionStrip(): void {
     const ctx = this.ctx;
     ctx.font = `bold 15px ${FONT}`;
     ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    ctx.fillText('行动顺序', 20, 34);
+    ctx.fillText('行动顺序', 20, 48);
     let n = 0;
     for (let i = this.evIdx; i < this.events.length && n < 8; i++) {
       const e = this.events[i];
@@ -480,7 +481,7 @@ export class BattleRenderer {
       const big = n === 0;
       const r = big ? 24 : 17;
       const cx = 20 + r + 4;
-      const cy = 52 + (big ? 0 : n * 42 + 14);
+      const cy = 84 + (big ? 0 : n * 42 + 14);
       // 深色底托
       ctx.beginPath();
       ctx.arc(cx, cy, r + 4, 0, Math.PI * 2);
@@ -502,8 +503,8 @@ export class BattleRenderer {
       }
       ctx.font = `bold ${big ? 16 : 15}px ${FONT}`;
       ctx.fillStyle = '#fff';
-      // 名字按可用宽度截断（最长 5~6 字，超出加省略号），避免硬切半字
-      const maxW = big ? 180 : 172;
+      // 名字按可用宽度截断（避免长名逼近我方圆），超出加省略号
+      const maxW = big ? 165 : 150;
       let label = v.name;
       while (label.length > 1 && ctx.measureText(label).width > maxW) {
         label = label.slice(0, -1);

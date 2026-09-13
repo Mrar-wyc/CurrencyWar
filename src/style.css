@@ -44,11 +44,11 @@ html, body {
 
 #app { width: 100%; height: 100%; }
 
-/* 1280×720 固定舞台，JS 缩放适配 */
+/* 1440×720（2:1）固定舞台，JS 缩放适配——加宽适配安卓横屏视觉 */
 .stage {
   position: absolute;
   left: 50%; top: 50%;
-  width: 1280px; height: 720px;
+  width: 1440px; height: 720px;
   transform-origin: center center;
   background:
     radial-gradient(700px 400px at 22% 8%, rgba(255, 255, 255, 0.14), transparent 60%),
@@ -76,9 +76,9 @@ html, body {
   z-index: 0;
 }
 
-/* 界面切换淡入 */
+/* 界面切换淡入（仅屏幕/阶段切换时由 main.ts 挂 .stage-anim；点击刷新不重播防屏闪） */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-.stage > * { animation: fadeIn 0.18s ease-out; }
+.stage-anim > * { animation: fadeIn 0.18s ease-out; }
 
 button {
   font-family: inherit;
@@ -434,10 +434,10 @@ button.disabled { opacity: 0.45; }
 .slot.back { width: 114px; height: 82px; margin-top: 6px; }
 .slot.front { width: 112px; height: 114px; margin-top: 6px; }
 .slot.front.locked { opacity: 0.45; }
-.slot.bench { width: 78px; height: 78px; }
+.slot.bench { width: auto; flex: 1; min-width: 0; max-width: 78px; height: 78px; }
 .slot-empty { color: rgba(233, 235, 255, 0.7); font-size: 19px; font-weight: 900; }
 .slot-empty::before { content: '◆ '; font-size: 13px; }
-.bench-list { display: flex; gap: 7px; }
+.bench-list { display: flex; gap: 7px; flex: 1; min-width: 0; }
 
 /* 上阵计数胶囊（官方大计数形式） */
 .count-pill {
@@ -503,7 +503,13 @@ button.disabled { opacity: 0.45; }
   font-weight: 700;
   cursor: pointer;
 }
-.dp-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.dp-actions {
+  position: sticky;
+  bottom: -12px; /* 抵消面板 padding-bottom，滚动时按钮常驻面板底缘（修复穿戴后按钮被内容顶出遮挡） */
+  display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px;
+  padding: 12px 0 4px;
+  background: linear-gradient(180deg, rgba(30, 28, 74, 0) 0%, rgba(30, 28, 74, 0.95) 40%);
+}
 .dp-actions button {
   padding: 11px 16px; font-size: 16.5px; font-weight: 800; letter-spacing: 1px;
   border-radius: 11px;
@@ -535,7 +541,7 @@ button.disabled { opacity: 0.45; }
 .bh-name::before { content: '◆ '; color: var(--gold-text); font-size: 13px; }
 .bh-hp { color: #ffd7d7; }
 .battle-stage { position: relative; }
-.battle-canvas { width: 1280px; height: 674px; display: block; }
+.battle-canvas { width: 1440px; height: 674px; display: block; }
 .battle-controls {
   position: absolute;
   right: 18px; bottom: 16px;
