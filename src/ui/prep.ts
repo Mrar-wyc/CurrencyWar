@@ -11,6 +11,7 @@ import { activeTraits, traitById } from '../logic/synergy';
 import { enemyById } from '../data/enemies';
 import type { OwnedUnit } from '../logic/types';
 import { COST_COLORS, h, starText, toast } from './dom';
+import { avatar, coinSvg, enemyMark, heartSvg, hexTrait, lockSvg, rerollSvg, swordSvg, xpSvg } from './icons';
 import type { AppCtx } from './ctx';
 
 const FACTION_SHORT: Record<string, string> = {
@@ -59,11 +60,12 @@ function unitCard(ctx: AppCtx, u: OwnedUnit, inBoard: boolean): HTMLElement {
       ctx.refresh();
     }
   },
-    h('div', { class: 'uc-top' },
+    avatar(c.color, c.cost, c.name.slice(0, 1), inBoard ? 40 : 30),
+    h('div', { class: 'uc-name-row' },
       h('span', { class: 'uc-name' }, c.name),
       h('span', { class: 'uc-star', style: { color: COST_COLORS[c.cost] } }, starText(u.star))
     ),
-    h('div', { class: 'uc-tags' }, c.element, '·', tagNames(c.tags)),
+    h('div', { class: 'uc-tags' }, `${c.element}·${tagNames(c.tags)}`),
     u.equips.length
       ? h('div', { class: 'uc-equips' }, u.equips.map(id => h('span', { class: 'eq-dot', style: { background: equipById(id).color } })))
       : null
@@ -88,12 +90,15 @@ function shopRow(ctx: AppCtx): HTMLElement {
         ctx.refresh();
       }
     },
-      h('div', { class: 'sc-head' },
-        h('span', { class: 'sc-name' }, c.name),
-        h('span', { class: 'sc-cost', style: { color: COST_COLORS[c.cost] } }, `♦${c.cost}`)
-      ),
-      h('div', { class: 'sc-tags' }, FACTION_SHORT[c.faction] ?? c.faction, ' / ', tagNames(c.tags)),
-      h('div', { class: 'sc-ult' }, c.ultimate.name)
+      h('div', { class: 'sc-avatar' }, avatar(c.color, c.cost, c.name.slice(0, 1), 46)),
+      h('div', { class: 'sc-body' },
+        h('div', { class: 'sc-head' },
+          h('span', { class: 'sc-name' }, c.name),
+          h('span', { class: 'sc-cost', style: { color: COST_COLORS[c.cost] } }, `${c.cost}`)
+        ),
+        h('div', { class: 'sc-tags' }, FACTION_SHORT[c.faction] ?? c.faction, ' / ', tagNames(c.tags)),
+        h('div', { class: 'sc-ult' }, c.ultimate.name)
+      )
     ));
   });
   return row;
@@ -103,20 +108,7 @@ function boardRows(ctx: AppCtx): HTMLElement {
   const st = ctx.st;
   const wrap = h('div', { class: 'board-rows' });
 
-  const backRow = h('div', { class: 'slot-row back-row' });
-  backRow.append(h('div', { class: 'row-label' }, `后台×${st.board.filter(u => u.slot?.row === 'back').length}`));
-  for (let i = 0; i < backCapacity(st); i++) {
-    const u = st.board.find(x => x.slot?.row === 'back' && x.slot?.index === i);
-    const slot = h('div', {
-      class: `slot back ${u ? 'filled' : ''}`,
-      onclick: (e: Event) => {
-        e.stopPropagation();
-        handleSlotClick(ctx, 'back', i, u);
-      }
-    }, u ? unitCard(ctx, u, true) : '');
-    backRow.append(slot);
-  }
-
+  // 官方行序：前台在上、后台在下
   const frontRow = h('div', { class: 'slot-row front-row' });
   frontRow.append(h('div', { class: 'row-label' }, `前台×${st.board.filter(u => u.slot?.row === 'front').length}/${frontCapacity(st)}`));
   for (let i = 0; i < CFG.frontSlots; i++) {
@@ -132,7 +124,21 @@ function boardRows(ctx: AppCtx): HTMLElement {
     frontRow.append(slot);
   }
 
-  wrap.append(backRow, frontRow);
+  const backRow = h('div', { class: 'slot-row back-row' });
+  backRow.append(h('div', { class: 'row-label' }, `后台×${st.board.filter(u => u.slot?.row === 'back').length}/${backCapacity(st)}`));
+  for (let i = 0; i < backCapacity(st); i++) {
+    const u = st.board.find(x => x.slot?.row === 'back' && x.slot?.index === i);
+    const slot = h('div', {
+      class: `slot back ${u ? 'filled' : ''}`,
+      onclick: (e: Event) => {
+        e.stopPropagation();
+        handleSlotClick(ctx, 'back', i, u);
+      }
+    }, u ? unitCard(ctx, u, true) : '');
+    backRow.append(slot);
+  }
+
+  wrap.append(frontRow, backRow);
 
   const benchRow = h('div', { class: 'slot-row bench-row' });
   benchRow.append(h('div', { class: 'row-label' }, `备战席×${st.bench.length}`));
@@ -172,11 +178,17 @@ function traitPanel(ctx: AppCtx): HTMLElement {
   if (!ats.length) panel.append(h('div', { class: 'hint' }, '上阵角色后激活羁绊'));
   for (const at of ats) {
     panel.append(h('div', { class: `trait-item ${at.tier ? 'active' : 'inactive'}` },
-      h('div', { class: 'ti-head' },
-        h('span', {}, `${at.trait.icon} ${at.trait.name}`),
-        h('span', { class: 'ti-count' }, `${at.count}${at.nextAt ? '/' + at.nextAt : ''}`)
-      ),
-      h('div', { class: 'ti-desc' }, at.tier ? at.tier.desc : `再上阵 ${at.nextAt! - at.count} 人激活下一档`)
+      hexTrait(at.trait.icon, !!at.tier, 34),
+      h('div', { class: 'ti-body' },
+        h('div', { class: 'ti-head' },
+          h('span', {}, at.trait.name),
+          h('span', { class: 'ti-count' }, `${at.count}${at.nextAt ? '/' + at.nextAt : ''}`)
+        ),
+        h('div', { class: 'ti-desc' }, at.tier ? at.tier.desc : `再上阵 ${at.nextAt! - at.count} 人激活下一档`),
+        h('div', { class: 'tier-pips' },
+          at.trait.tiers.map(t => h('div', { class: `tier-pip ${at.count >= t.count ? 'hit' : ''}`, title: `${t.count} 人：${t.desc}` }))
+        )
+      )
     ));
   }
   return panel;
@@ -214,9 +226,10 @@ function inventoryPanel(ctx: AppCtx): HTMLElement {
     }, e.tier === 'advanced' ? '◆' : e.tier === 'emblem' ? '★' : '◇'));
   });
   panel.append(grid);
-  panel.append(h('div', { class: 'hint' }, s?.kind === 'equip'
-    ? '已选中装备：点击角色穿戴；再点一件简易装备可合成'
-    : '点击装备选中 → 点击角色穿戴；两件简易装备可合成进阶；★ 星徽为穿戴者加入羁绊'));
+  // 触屏无 tooltip：选中装备信息常显一行
+  panel.append(h('div', { class: 'inv-name' }, s?.kind === 'equip'
+    ? `${equipById(s.id).name}：${equipById(s.id).desc}`
+    : '点装备选中→点角色穿戴；两件简易可合成'));
   return panel;
 }
 
@@ -329,11 +342,13 @@ function intelPanel(ctx: AppCtx): HTMLElement {
     const b = node.battle;
     const counts = new Map<string, number>();
     for (const e of b.enemies) counts.set(e.id, (counts.get(e.id) ?? 0) + (e.count ?? 1));
-    panel.append(h('div', { class: 'intel-node' }, `${node.kind === 'boss' ? '👑 ' : '⚔️ '}${b.name}`));
+    panel.append(h('div', { class: 'intel-node' },
+      enemyMark(node.kind === 'boss', node.kind === 'boss' ? '#ffd166' : '#ff9d9d', 18),
+      `${node.kind === 'boss' ? '首领战 · ' : ''}${b.name}`));
     for (const [id, n] of counts) {
       const e = enemyById(id);
       panel.append(h('div', { class: 'intel-enemy' },
-        h('span', { style: { color: e.color } }, `${e.boss ? '👑' : '●'} ${e.name}`), ` ×${n}`
+        enemyMark(!!e.boss, e.color, 14), `${e.name} ×${n}`
       ));
     }
     panel.append(h('div', { class: 'hint' }, `敌方行动上限 ${b.enemyActionLimit} 次，超时判负`));
@@ -341,6 +356,9 @@ function intelPanel(ctx: AppCtx): HTMLElement {
   } else if (node.kind === 'strategy') {
     panel.append(h('div', { class: 'intel-node' }, '📈 投资策略'));
     panel.append(h('div', { class: 'hint' }, '出战后进入三选一，采纳后持续整局'));
+  }
+  if (st.wealthGem) {
+    panel.append(h('div', { class: 'intel-node' }, '👑 财富宝钻：后台位 +1，每 3 个备战阶段 +1 金'));
   }
   if (st.strategies.length) {
     panel.append(h('div', { class: 'panel-title' }, `已采纳策略 ×${st.strategies.length}`));
@@ -352,9 +370,6 @@ function intelPanel(ctx: AppCtx): HTMLElement {
       ));
     }
   }
-  if (st.wealthGem) {
-    panel.append(h('div', { class: 'intel-node' }, '👑 财富宝钻：后台位 +1，每 3 个备战阶段 +1 金'));
-  }
   panel.append(h('div', { class: 'hint tip' }, '提示：后台角色计入羁绊并周期性自动施放后台赋能（伤害取决于后台强度），不会被敌人攻击'));
   return panel;
 }
@@ -362,20 +377,26 @@ function intelPanel(ctx: AppCtx): HTMLElement {
 export function renderPrep(root: HTMLElement, ctx: AppCtx): void {
   const st = ctx.st;
   const node = PLANES[st.plane].nodes[st.node];
-  const nodeName = node.kind === 'battle' || node.kind === 'boss' ? node.battle.name : '';
+  const nodeName = node.kind === 'battle' || node.kind === 'boss' ? node.battle.name : '备战阶段';
   if (st.gemNew) {
     st.gemNew = false;
     toast('👑 击败首领，获得财富宝钻：后台位 +1，每 3 个备战阶段 +1 金');
   }
 
-  // 顶栏
+  // 顶栏：资源 + 商店操作（出战按钮移至棋盘右下角，官方位置）
+  const rerollDisabled = st.freeRerolls === 0 && st.gold < rerollCostOf(st);
+  const expHpMode = hasStrategy(st, 'struggle_protocol');
+  const expDisabled = st.level < CFG.maxLevel && (expHpMode ? st.hp <= 6 : st.gold < CFG.expCost);
   const topbar = h('div', { class: 'topbar' },
     h('div', { class: 'tb-left' },
-      h('span', { class: 'tb-item hp' }, `❤ ${st.hp}`),
-      h('span', { class: 'tb-item gold' }, `♦ ${st.gold}`),
+      h('span', { class: 'tb-item hp' }, heartSvg(19), `${st.hp}`),
+      h('span', { class: 'tb-item gold' }, coinSvg(19), `${st.gold}`),
       h('span', { class: 'tb-item' }, `Lv.${st.level}`,
         st.level < CFG.maxLevel
-          ? h('span', { class: 'exp-pill' }, `${st.exp}/${CFG.expToNext[st.level]}`)
+          ? h('span', { class: 'exp-wrap' },
+            h('span', { class: 'exp-bar' },
+              h('span', { class: 'exp-fill', style: { width: `${Math.min(100, Math.round(st.exp / CFG.expToNext[st.level] * 100))}%` } })),
+            h('span', { class: 'exp-pill' }, `${st.exp}/${CFG.expToNext[st.level]}`))
           : h('span', { class: 'exp-pill max' }, 'MAX')
       ),
       st.winStreak >= 2 ? h('span', { class: 'tb-item streak win' }, `🔥${st.winStreak}连胜`) : null,
@@ -384,41 +405,45 @@ export function renderPrep(root: HTMLElement, ctx: AppCtx): void {
     ),
     h('div', { class: 'tb-right' },
       h('button', {
-        class: 'tb-btn',
+        class: `tb-btn ${rerollDisabled ? 'disabled' : ''}`,
         onclick: () => { const err = reroll(st); if (err) toast(err); ctx.refresh(); }
-      }, st.freeRerolls > 0 ? `刷新(免费×${st.freeRerolls})` : `刷新 ♦${rerollCostOf(st)}`),
+      }, rerollSvg(15), st.freeRerolls > 0 ? `刷新(免费×${st.freeRerolls})` : `刷新 ♦${rerollCostOf(st)}`),
       h('button', {
         class: `tb-btn ${st.shopLocked ? 'on' : ''}`,
         onclick: () => { toggleLock(st); ctx.refresh(); }
-      }, st.shopLocked ? '🔒已锁' : '🔓锁定'),
+      }, lockSvg(15, !st.shopLocked), st.shopLocked ? '已锁' : '锁定'),
       h('button', {
-        class: 'tb-btn',
+        class: `tb-btn ${expDisabled ? 'disabled' : ''}`,
         onclick: () => { const err = buyExp(st); if (err) toast(err); ctx.refresh(); }
-      }, st.level >= CFG.maxLevel ? '满级'
-        : hasStrategy(st, 'struggle_protocol') ? '经验 ❤6' : `经验 ♦${CFG.expCost}`),
-      h('button', {
-        class: 'tb-btn go',
-        onclick: () => {
-          const input = startBattle(st);
-          if (!input) { toast('至少上阵 1 名前台角色'); return; }
-          ctx.onBattleStart(input);
-        }
-      }, `⚔ 出战`)
+      }, xpSvg(15), st.level >= CFG.maxLevel ? '满级'
+        : expHpMode ? '经验 ❤6' : `经验 ♦${CFG.expCost}`)
     )
   );
 
+  // 官方布局：节点名/上阵计数 → 前台 → 后台 → 备战席 → 商店（最底部）+ 右下大金钮出战
   const center = h('div', { class: 'prep-center' },
-    h('div', { class: 'shop-wrap' }, shopRow(ctx)),
+    h('div', { class: 'prep-head-row' },
+      h('div', { class: 'prep-node-name' }, nodeName),
+      h('div', { class: 'count-pill' }, `上阵 ${st.board.length}/${frontCapacity(st) + backCapacity(st)}`)
+    ),
     boardRows(ctx),
-    h('div', { class: 'prep-node-name' }, nodeName)
+    shopRow(ctx),
+    h('button', {
+      class: 'go-btn',
+      onclick: () => {
+        const input = startBattle(st);
+        if (!input) { toast('至少上阵 1 名前台角色'); return; }
+        ctx.onBattleStart(input);
+      }
+    }, swordSvg(20), '出战')
   );
 
   root.append(
     topbar,
     h('div', { class: 'prep-body' },
-      h('div', { class: 'prep-left' }, traitPanel(ctx), inventoryPanel(ctx)),
+      h('div', { class: 'prep-left' }, traitPanel(ctx)),
       center,
-      h('div', { class: 'prep-right' }, detailPanel(ctx))
+      h('div', { class: 'prep-right' }, inventoryPanel(ctx), detailPanel(ctx))
     )
   );
 }
