@@ -86,6 +86,23 @@ describe('站位', () => {
     expect(st.board.map(u => u.uid)).toContain(a.uid);
     expect(st.board).toHaveLength(1);
   });
+
+  it('同一角色不能同时上阵（前台/后台合计）', () => {
+    const st = newMatch();
+    const a = mkUnit('march7th'), a2 = mkUnit('march7th'), b = mkUnit('danheng');
+    st.bench = [a, a2, b];
+    expect(placeUnit(st, a.uid, 'front', 0)).toBeNull();
+    // 同名第二个副本：前台、后台都拒绝
+    expect(placeUnit(st, a2.uid, 'front', 1)).toBe('同名角色只能上阵一个');
+    expect(placeUnit(st, a2.uid, 'back', 0)).toBe('同名角色只能上阵一个');
+    // 不同角色正常
+    expect(placeUnit(st, b.uid, 'front', 1)).toBeNull();
+    // 上阵后再买同名第3个自动合成 2★（不受影响）
+    st.gold = 100;
+    st.shop = [{ charId: 'march7th' }, { charId: null }, { charId: null }, { charId: null }, { charId: null }];
+    expect(buyShop(st, 0)).toBeNull();
+    expect(st.board.some(u => u.charId === 'march7th' && u.star === 2)).toBe(true);
+  });
 });
 
 describe('经济与结算', () => {

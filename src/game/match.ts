@@ -147,6 +147,9 @@ export function placeUnit(st: MatchState, uid: string, row: 'front' | 'back', in
   if (row === 'back' && index >= CFG.backSlots) return '后台位置不存在';
   const u = findUnit(st, uid);
   if (!u) return '找不到该角色';
+  // 同一角色（同名）只能上阵一个：前台/后台合计
+  const sameCharOnBoard = st.board.find(x => x.uid !== uid && x.charId === u.charId);
+  if (sameCharOnBoard && !u.slot) return '同名角色只能上阵一个';
   const other = st.board.find(x => x.uid !== uid && x.slot?.row === row && x.slot?.index === index);
 
   if (u.slot) {
