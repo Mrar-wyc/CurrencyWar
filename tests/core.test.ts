@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { charById } from '../src/data/characters';
+import { charById, CHARACTERS, POOL_COPIES } from '../src/data/characters';
 import { enemyById } from '../src/data/enemies';
 import { equipById, findCombine } from '../src/data/equipment';
 import { MATCH_CONFIG as CFG, SHOP_ODDS } from '../src/data/stages';
+import { FACTION_TRAITS, SCHOOL_TRAITS } from '../src/data/traits';
+import { createPool } from '../src/logic/shop';
 import { simulateBattle } from '../src/battle/engine';
 import { buildAllyUnit, buildBackerUnit, buildBattleInput } from '../src/logic/battle-build';
 import {
@@ -483,16 +485,16 @@ describe('投资策略', () => {
 
   it('大裁员：出售全部角色双倍售价 + 6 次免费刷新', () => {
     const st = strategyPhase(['layoff_front']);
-    const u = mkUnit('seele', 1, { row: 'front', index: 0 }); // 4费 1★ 售价 4
+    const u = mkUnit('seele', 1, { row: 'front', index: 0 }); // 3费 1★ 售价 3
     u.equips = ['b_atk'];
-    const b = mkUnit('danheng', 1); // 备战席也出售
+    const b = mkUnit('danheng', 1); // 备战席也出售（1费售价 1）
     st.board = [u];
     st.bench = [b];
     st.gold = 0;
     pickStrategy(st, 0);
     expect(st.board).toHaveLength(0);
     expect(st.bench).toHaveLength(0);
-    expect(st.gold).toBe(10); // (4+1)×2
+    expect(st.gold).toBe(8); // (3+1)×2
     expect(st.freeRerolls).toBe(6);
     expect(st.inventory).toContain('b_atk');
   });
@@ -513,18 +515,18 @@ describe('投资策略', () => {
 
   it('降本增效：出售全部双倍售价 + 6 次免费购买', () => {
     const st = strategyPhase(['cheap_reroll']);
-    const u = mkUnit('seele', 1, { row: 'front', index: 0 });
+    const u = mkUnit('seele', 1, { row: 'front', index: 0 }); // 3费 1★ 售价 3
     st.board = [u];
     st.gold = 0;
     pickStrategy(st, 0);
     expect(st.board).toHaveLength(0);
-    expect(st.gold).toBe(8);
+    expect(st.gold).toBe(6);
     expect(st.freeBuys).toBe(6);
     // 免费购买：金币不足也能买，且不消耗金币
     st.phase = 'prep';
     st.shop = [{ charId: 'seele' }, { charId: null }, { charId: null }, { charId: null }, { charId: null }];
     expect(buyShop(st, 0)).toBeNull();
-    expect(st.gold).toBe(8);
+    expect(st.gold).toBe(6);
     expect(st.freeBuys).toBe(5);
   });
 
@@ -548,13 +550,13 @@ describe('投资策略', () => {
     expect(st.strategyData.promo4).toBe(1);
     st.phase = 'prep';
     st.gold = 50;
-    st.shop = [{ charId: 'march7th' }, { charId: 'seele' }, { charId: null }, { charId: null }, { charId: null }];
+    st.shop = [{ charId: 'march7th' }, { charId: 'gepard' }, { charId: null }, { charId: null }, { charId: null }];
     buyShop(st, 0);
     expect(st.bench[0].star).toBe(1);
     expect(st.strategyData.promo4).toBe(1);
     buyShop(st, 1);
-    const seele = st.bench.find(u => u.charId === 'seele')!;
-    expect(seele.star).toBe(2);
+    const gepard = st.bench.find(u => u.charId === 'gepard')!;
+    expect(gepard.star).toBe(2);
     expect(st.strategyData.promo4).toBe(0);
   });
 
@@ -631,11 +633,11 @@ describe('投资策略', () => {
     expect(m.atkPct ?? 0).toBeCloseTo(0);
     // 三三三（按角色）：3★（+1）；3 件装备（+1）；4 费不计 → 2 项叠加
     st.strategies = ['three_three_three'];
-    const s3 = mkUnit('seele', 3, { row: 'front', index: 0 });
+    const s3 = mkUnit('seele', 3, { row: 'front', index: 0 }); // 希儿已校准为 3 费：3★+3费+3件装三项全满足
     s3.equips = ['b_atk', 'b_def', 'b_hp'];
     m = strategyUnitMods(st, s3);
-    expect(m.atkPct).toBeCloseTo(0.4);
-    expect(m.spdPct).toBeCloseTo(0.2);
+    expect(m.atkPct).toBeCloseTo(0.6);
+    expect(m.spdPct).toBeCloseTo(0.3);
   });
 
   it('免费刷新/免费购买资源：reroll 与 buyShop 优先消耗', () => {
@@ -667,5 +669,37 @@ describe('投资策略', () => {
     st.winStreak = 0;
     // 招财狗为银 +0，promo4 为金 +4%
     expect(strategyEnemyMult(st)).toBeCloseTo(1.04);
+  });
+});
+
+describe('角色数据完整性（路线④）', () => {
+  it('共 24 名，字段齐全且阵营/流派合法', () => {
+    expect(CHARACTERS.length).toBe(24);
+    const factionIds = new Set(FACTION_TRAITS.map(t => t.id));
+    const schoolIds = new Set(SCHOOL_TRAITS.map(t => t.id));
+    for (const c of CHARACTERS) {
+      expect(factionIds.has(c.faction), `${c.name} 阵营非法`).toBe(true);
+      for (const t of c.tags) expect(schoolIds.has(t), `${c.name} 流派非法`).toBe(true);
+      expect(c.backPower).toBeGreaterThan(0);
+      expect(c.backSkill).toBeTruthy();
+      expect(() => charById(c.id)).not.toThrow();
+    }
+    expect(new Set(CHARACTERS.map(c => c.id)).size).toBe(CHARACTERS.length);
+  });
+
+  it('攻击力符合费用档位区间', () => {
+    const bands: Record<number, [number, number]> = {
+      1: [340, 420], 2: [400, 480], 3: [440, 540], 4: [460, 600], 5: [560, 660]
+    };
+    for (const c of CHARACTERS) {
+      const [lo, hi] = bands[c.cost];
+      expect(c.base.atk >= lo && c.base.atk <= hi, `${c.name} atk ${c.base.atk} 不在 ${c.cost} 费区间`).toBe(true);
+    }
+  });
+
+  it('牌池覆盖全部角色且复制数按费用', () => {
+    const pool = createPool();
+    expect(Object.keys(pool).length).toBe(CHARACTERS.length);
+    for (const c of CHARACTERS) expect(pool[c.id]).toBe(POOL_COPIES[c.cost]);
   });
 });
