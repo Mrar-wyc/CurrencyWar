@@ -4,6 +4,8 @@ import type {
 import type { BattleInput } from '../logic/battle-build';
 
 const AV = 10000;
+/** 后台施技速度档：后台单位以 速度×此系数 的节奏周期施放后台赋能（平衡调节旋钮） */
+const BACK_CAST_SPD_FACTOR = 0.4;
 
 function rand(): number {
   return Math.random();
@@ -34,8 +36,9 @@ function effDef(u: CombatUnit): number {
  */
 export function simulateBattle(input: BattleInput): BattleResult {
   const { allies, enemies } = input;
+  const backers = input.backers ?? [];
   const tf = input.teamFlags;
-  const all = [...allies, ...enemies];
+  const all = [...allies, ...enemies, ...backers];
   const events: BattleEvent[] = [];
   let sp = Math.max(0, Math.min(input.spMax, input.spStart));
   const spMax = input.spMax;
@@ -47,6 +50,10 @@ export function simulateBattle(input: BattleInput): BattleResult {
 
   if (input.shieldPct > 0) {
     for (const a of allies) a.shield += Math.round(a.maxHp * input.shieldPct);
+  }
+  // 后台单位首次施技延后一个完整周期
+  for (const b of backers) {
+    b.nextActionAt = AV / (effSpd(b) * BACK_CAST_SPD_FACTOR);
   }
   events.push({ t: 'start', sp, spMax, limit: input.enemyActionLimit, shieldPct: input.shieldPct });
 
@@ -124,7 +131,7 @@ export function simulateBattle(input: BattleInput): BattleResult {
     hits.push({ uid: target.uid, dot, hpAfter: target.hp, shieldAfter: Math.round(target.shield), died: false });
   }
 
-  function castSkill(u: CombatUnit, def: SkillDef, kind: 'basic' | 'skill' | 'ult'): void {
+  function castSkill(u: CombatUnit, def: SkillDef, kind: 'basic' | 'skill' | 'ult' | 'backend'): void {
     const hits: HitInfo[] = [];
     const charge = 1 + (u.side === 'ally' ? tf.ultCharge : 0) + u.unitFlags.ultCharge;
 
@@ -155,9 +162,6 @@ export function simulateBattle(input: BattleInput): BattleResult {
           else hits.push(healUnit(t, effAtk(u) * def.mult * (1 + tf.healBonus + u.unitFlags.healBonus)));
         }
       }
-      if (def.buff) {
-        for (const a of aliveOf('ally')) a.buffs.push({ ...def.buff });
-      }
     } else if (def.target === 'allAllies') {
       for (const a of aliveOf('ally')) {
         if (def.mult > 0) {
@@ -165,6 +169,11 @@ export function simulateBattle(input: BattleInput): BattleResult {
           else hits.push(healUnit(a, effAtk(u) * def.mult * (1 + tf.healBonus + u.unitFlags.healBonus)));
         }
       }
+    }
+
+    // 全队增益（任意目标类型均可携带，如艾丝妲终结技加速、停云后台祝福）
+    if (def.buff) {
+      for (const a of aliveOf('ally')) a.buffs.push({ ...def.buff });
     }
 
     if (def.teamEnergy) {
@@ -288,7 +297,10 @@ export function simulateBattle(input: BattleInput): BattleResult {
       if (x.alive && (!actor || x.nextActionAt < actor.nextActionAt)) actor = x;
     }
     if (!actor) break;
-    actor.nextActionAt += AV / effSpd(actor);
+    // 后台单位按降速档推进行动条，其余单位按正常速度
+    actor.nextActionAt += actor.backend
+      ? AV / (effSpd(actor) * BACK_CAST_SPD_FACTOR)
+      : AV / effSpd(actor);
 
     // 行动开始：持续伤害结算
     if (actor.dots.length) {
@@ -306,7 +318,10 @@ export function simulateBattle(input: BattleInput): BattleResult {
       if (!actor.alive) continue;
     }
 
-    if (actor.side === 'ally') {
+    if (actor.backend) {
+      // 后台参战：只施放后台赋能，不耗战技点、不吃能量、不触发生机回复
+      castSkill(actor, actor.char!.backSkill, 'backend');
+    } else if (actor.side === 'ally') {
       allyAct(actor);
       // 希儿击杀再动
       if (extraActions.length && aliveOf('enemy').length) {

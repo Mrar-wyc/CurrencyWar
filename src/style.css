@@ -399,6 +399,7 @@ button:active { transform: scale(0.95); }
 .skill-line b { color: var(--violet-ink); }
 .skill-line.skill b { color: #1f9d58; }
 .skill-line.ult b { color: var(--gold-deep); }
+.skill-line.back b { color: #0e9488; }
 .dp-equips { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0; }
 .dp-equip {
   font-size: 15px; padding: 9px 13px;

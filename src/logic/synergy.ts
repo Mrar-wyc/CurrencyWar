@@ -42,7 +42,7 @@ export function activeTraits(units: OwnedUnit[]): ActiveTrait[] {
   return result;
 }
 
-/** 全队全局加成：羁绊档位 + 后台角色赋能 */
+/** 全队全局加成：羁绊档位（后台角色计入羁绊人数；参战贡献见后台赋能机制） */
 export function computeTeamFlags(board: OwnedUnit[]): TeamFlags {
   const flags: TeamFlags = { ...EMPTY_TEAM_FLAGS };
   for (const at of activeTraits(board)) {
@@ -51,9 +51,6 @@ export function computeTeamFlags(board: OwnedUnit[]): TeamFlags {
       (flags as unknown as Record<string, number>)[k] += v as number;
     }
   }
-  const backCount = board.filter(u => u.slot?.row === 'back').length;
-  flags.atkPct += backCount * 0.04;
-  flags.hpPct += backCount * 0.04;
   return flags;
 }
 

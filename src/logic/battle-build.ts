@@ -63,6 +63,46 @@ export function buildAllyUnit(u: OwnedUnit, pos: number, tf: TeamFlags): CombatU
   };
 }
 
+/** 构建一名后台参战单位：不会被选中攻击，周期施放后台赋能 */
+export function buildBackerUnit(u: OwnedUnit, pos: number, tf: TeamFlags): CombatUnit {
+  const c = charById(u.charId);
+  const m = STAR_MULT[u.star];
+  const { unit: uf } = mergeEquips(u.equips);
+  const maxHp = Math.round(c.base.hp * m);
+  // 后台强度 = backPower × 星级倍率 × (1 + 团队加成 + 自身 unit 装备攻击加成)
+  const power = Math.round(c.backPower * m * (1 + tf.backPowerPct + uf.atkPct));
+  return {
+    uid: u.uid,
+    name: c.name,
+    side: 'ally',
+    color: c.color,
+    charId: c.id,
+    boss: false,
+    maxHp,
+    hp: maxHp,
+    atk: power,
+    def: 0,
+    spd: c.base.spd,
+    critRate: c.critRate,
+    critDmg: c.critDmg,
+    maxEnergy: 0,
+    energy: 0,
+    shield: 0,
+    buffs: [],
+    dots: [],
+    alive: true,
+    moveIdx: 0,
+    char: c,
+    passive: { type: 'none' },
+    unitFlags: uf,
+    shenjunStacks: 0,
+    killStacks: 0,
+    nextActionAt: 0,
+    pos,
+    backend: true
+  };
+}
+
 /** 按关卡节点构建敌方阵容 */
 export function buildEnemies(node: BattleNode): CombatUnit[] {
   const out: CombatUnit[] = [];
@@ -108,6 +148,8 @@ export function buildEnemies(node: BattleNode): CombatUnit[] {
 
 export interface BattleInput {
   allies: CombatUnit[];
+  /** 后台参战单位（周期自动施放后台赋能，不可被选中） */
+  backers: CombatUnit[];
   enemies: CombatUnit[];
   spStart: number;
   spMax: number;
@@ -133,11 +175,16 @@ export function buildBattleInput(st: MatchState): BattleInput {
   const front = st.board
     .filter(u => u.slot?.row === 'front')
     .sort((a, b) => (a.slot?.index ?? 0) - (b.slot?.index ?? 0));
+  const back = st.board
+    .filter(u => u.slot?.row === 'back')
+    .sort((a, b) => (a.slot?.index ?? 0) - (b.slot?.index ?? 0));
   const allies = front.map((u, i) => buildAllyUnit(u, i, tf));
+  const backers = back.map((u, i) => buildBackerUnit(u, i, tf));
   const enemies = buildEnemies(battle);
   const spMax = 5 + tf.spMaxBonus;
   return {
     allies,
+    backers,
     enemies,
     spStart: Math.min(spMax, 3 + tf.spStart),
     spMax,

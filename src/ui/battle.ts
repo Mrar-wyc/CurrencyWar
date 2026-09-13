@@ -61,6 +61,6 @@ export function renderBattle(root: HTMLElement, ctx: AppCtx, input: BattleInput)
         }, '继 续')
       )
     );
-  });
+  }, input.backers ?? []);
   renderer.start();
 }

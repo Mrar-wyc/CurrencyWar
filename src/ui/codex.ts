@@ -44,6 +44,7 @@ function codexBody(ctx: AppCtx, tab: Tab): HTMLElement {
         h('div', { class: 'cc-stats' }, `HP ${c.base.hp} · 攻 ${c.base.atk} · 防 ${c.base.def} · 速 ${c.base.spd}`),
         h('div', { class: 'cc-skill' }, h('b', {}, '战技'), ` ${c.skill.desc}`),
         h('div', { class: 'cc-skill' }, h('b', {}, '终结技'), ` ${c.ultimate.desc}`),
+        h('div', { class: 'cc-skill' }, h('b', {}, '后台赋能'), ` ${c.backSkill.desc}（后台强度 ${c.backPower}）`),
         c.passive.type !== 'none' ? h('div', { class: 'cc-passive' }, '被动：见流派说明') : null,
         h('div', { class: 'cc-flavor' }, c.flavor)
       ));

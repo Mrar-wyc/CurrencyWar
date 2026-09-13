@@ -253,11 +253,13 @@ function detailPanel(ctx: AppCtx): HTMLElement {
       h('span', {}, `HP ${Math.round(c.base.hp * m)}`),
       h('span', {}, `攻 ${Math.round(c.base.atk * m)}`),
       h('span', {}, `防 ${Math.round(c.base.def * m)}`),
-      h('span', {}, `速 ${c.base.spd}`)
+      h('span', {}, `速 ${c.base.spd}`),
+      h('span', {}, `后台强度 ${Math.round(c.backPower * m)}`)
     ),
     skillLine('普攻', `${c.basic.name}：${c.basic.desc}`, ''),
     skillLine('战技', `${c.skill.name}：${c.skill.desc}`, 'skill'),
     skillLine('终结技', `${c.ultimate.name}：${c.ultimate.desc}`, 'ult'),
+    skillLine('后台赋能', `${c.backSkill.name}：${c.backSkill.desc}`, 'back'),
     u.equips.length ? h('div', { class: 'dp-equips' },
       u.equips.map((id, i) => h('div', {
         class: 'dp-equip',
@@ -332,7 +334,7 @@ function intelPanel(ctx: AppCtx): HTMLElement {
     panel.append(h('div', { class: 'hint' }, `敌方行动上限 ${b.enemyActionLimit} 次，超时判负`));
     panel.append(h('div', { class: 'hint' }, `战败扣 ${node.kind === 'boss' ? CFG.loseHpBoss : CFG.loseHpNormal} 点小队生命`));
   }
-  panel.append(h('div', { class: 'hint tip' }, '提示：后台角色不参战但激活羁绊，并为全队提供 +4% 攻击/生命'));
+  panel.append(h('div', { class: 'hint tip' }, '提示：后台角色计入羁绊并周期性自动施放后台赋能（伤害取决于后台强度），不会被敌人攻击'));
   return panel;
 }
 

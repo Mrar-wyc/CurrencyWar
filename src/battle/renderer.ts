@@ -18,6 +18,8 @@ interface UnitView {
   y: number;
   r: number;
   dots: number;
+  /** 后台支援单位（画面下缘，不参战站位） */
+  backend?: boolean;
 }
 
 interface Floater {
@@ -36,6 +38,16 @@ interface HitFlash {
   color: string;
 }
 
+/** 后台支援弹道（施技演出） */
+interface Bolt {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  born: number;
+  color: string;
+}
+
 const W = 1280;
 const H = 720;
 
@@ -49,6 +61,7 @@ export class BattleRenderer {
   private byUid = new Map<string, UnitView>();
   private floaters: Floater[] = [];
   private flashes: HitFlash[] = [];
+  private bolts: Bolt[] = [];
   private raf = 0;
   private lastTs = 0;
   private evIdx = 0;
@@ -64,7 +77,7 @@ export class BattleRenderer {
   private speed = 1;
   /** 技能名横幅（官方演出） */
   private bannerText = '';
-  private bannerKind: 'basic' | 'skill' | 'ult' | 'enemy' | 'none' = 'none';
+  private bannerKind: 'basic' | 'skill' | 'ult' | 'enemy' | 'backend' | 'none' = 'none';
   private bannerUntil = 0;
 
   constructor(
@@ -72,7 +85,8 @@ export class BattleRenderer {
     private events: BattleEvent[],
     private allies: CombatUnit[],
     private enemies: CombatUnit[],
-    private onDone: (win: boolean) => void
+    private onDone: (win: boolean) => void,
+    private backers: CombatUnit[] = []
   ) {
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     canvas.width = W * dpr;
@@ -90,6 +104,19 @@ export class BattleRenderer {
       };
       this.views.push(v);
       this.byUid.set(u.uid, v);
+    }
+    // 后台支援单位：画面左下缘横排（不参战站位，仅施技演出）
+    for (const b of this.backers) {
+      const x = 56 + b.pos * 84;
+      const y = H - 52;
+      const v: UnitView = {
+        uid: b.uid, name: b.name, side: 'ally', pos: b.pos, color: b.color,
+        maxHp: b.maxHp, hp: b.hp, shield: 0, maxEnergy: 0, energy: 0,
+        boss: false, alive: true, alpha: 1, x, y, r: 20,
+        dots: 0, backend: true
+      };
+      this.views.push(v);
+      this.byUid.set(b.uid, v);
     }
   }
 
@@ -152,11 +179,15 @@ export class BattleRenderer {
       this.sp = ev.sp;
       if (ev.kind === 'enemy') this.enemyActions++;
       this.evDur = 380 + ev.hits.length * 260;
-      // 技能名横幅：普攻/战技/终结技/敌方技能
-      if (ev.kind === 'basic' || ev.kind === 'skill' || ev.kind === 'ult' || ev.kind === 'enemy') {
+      // 技能名横幅：普攻/战技/终结技/敌方技能/后台赋能
+      if (ev.kind === 'basic' || ev.kind === 'skill' || ev.kind === 'ult' || ev.kind === 'enemy' || ev.kind === 'backend') {
         const v = this.byUid.get(ev.uid);
         if (v) {
-          this.bannerText = ev.kind === 'ult' ? `${v.name}　${ev.name}！` : `${v.name}　${ev.name}`;
+          this.bannerText = ev.kind === 'ult'
+            ? `${v.name}　${ev.name}！`
+            : ev.kind === 'backend'
+              ? `【后台】${v.name}　${ev.name}`
+              : `${v.name}　${ev.name}`;
           this.bannerKind = ev.kind;
           this.bannerUntil = performance.now() + (ev.kind === 'ult' ? 1400 : 900);
         }
@@ -198,6 +229,10 @@ export class BattleRenderer {
       if (instant) {
         this.addFloater(v, `${Math.round(h.dmg)}`, h.crit ? '#ffd166' : '#ffffff');
         this.flashes.push({ x: v.x, y: v.y, born: performance.now(), color: h.crit ? '#ffd166' : '#ff8888' });
+        // 后台支援弹道：从支援单位飞向目标
+        if (caster?.backend) {
+          this.bolts.push({ x0: caster.x, y0: caster.y, x1: v.x, y1: v.y, born: performance.now(), color: caster.color });
+        }
       }
     }
     if (h.heal !== undefined) {
@@ -294,6 +329,7 @@ export class BattleRenderer {
       const bg = ctx.createLinearGradient(bx, 0, bx + bw, 0);
       const tint = this.bannerKind === 'ult' ? ['rgba(255,209,102,0.95)', 'rgba(240,169,46,0.85)']
         : this.bannerKind === 'enemy' ? ['rgba(255,120,120,0.9)', 'rgba(200,80,80,0.8)']
+        : this.bannerKind === 'backend' ? ['rgba(110,220,200,0.92)', 'rgba(70,180,160,0.85)']
         : ['rgba(167,160,255,0.92)', 'rgba(120,110,235,0.85)'];
       bg.addColorStop(0, 'rgba(30,26,70,0)');
       bg.addColorStop(0.2, tint[0]);
@@ -313,6 +349,12 @@ export class BattleRenderer {
     for (const v of this.views) {
       this.drawUnit(ctx, v, ts);
     }
+    // 后台支援栏标签
+    if (this.backers.length) {
+      ctx.font = 'bold 13px system-ui';
+      ctx.fillStyle = 'rgba(110,220,200,0.85)';
+      ctx.fillText('后台支援', 20, H - 78);
+    }
 
     // 战技点（右下，官方位置）
     this.drawSp();
@@ -327,6 +369,22 @@ export class BattleRenderer {
       ctx.globalAlpha = 1 - p;
       ctx.lineWidth = 3;
       ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    // 后台支援弹道
+    this.bolts = this.bolts.filter(b => ts - b.born < 260);
+    for (const b of this.bolts) {
+      const p = (ts - b.born) / 260;
+      const hx = b.x0 + (b.x1 - b.x0) * p;
+      const hy = b.y0 + (b.y1 - b.y0) * p - 60 * Math.sin(p * Math.PI);
+      ctx.beginPath();
+      ctx.arc(hx, hy, 6, 0, Math.PI * 2);
+      ctx.fillStyle = b.color;
+      ctx.shadowColor = b.color;
+      ctx.shadowBlur = 12;
+      ctx.globalAlpha = 1 - p * 0.4;
+      ctx.fill();
+      ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
     }
     // 飘字
@@ -355,7 +413,7 @@ export class BattleRenderer {
     for (let i = this.evIdx; i < this.events.length && n < 8; i++) {
       const e = this.events[i];
       if (e.t !== 'act') continue;
-      if (!(e.kind === 'basic' || e.kind === 'skill' || e.kind === 'ult' || e.kind === 'enemy' || e.kind === 'dot')) continue;
+      if (!(e.kind === 'basic' || e.kind === 'skill' || e.kind === 'ult' || e.kind === 'enemy' || e.kind === 'dot' || e.kind === 'backend')) continue;
       const v = this.byUid.get(e.uid);
       if (!v) continue;
       const big = n === 0;
@@ -415,6 +473,28 @@ export class BattleRenderer {
     ctx.globalAlpha = v.alpha;
     const x = v.x;
     const y = v.y;
+
+    // 后台支援单位：小圆 + 虚线环 + 名字（不参战，无血条）
+    if (v.backend) {
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = v.color;
+      ctx.globalAlpha *= 0.85;
+      ctx.fill();
+      ctx.globalAlpha = v.alpha;
+      ctx.setLineDash([4, 3]);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(110,220,200,0.9)';
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = 'bold 13px system-ui';
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.textAlign = 'center';
+      ctx.fillText(v.name, x, y + r + 16);
+      ctx.textAlign = 'left';
+      ctx.restore();
+      return;
+    }
 
     // 底座
     ctx.beginPath();

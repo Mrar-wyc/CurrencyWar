@@ -57,6 +57,10 @@ export interface CharDef {
   basic: SkillDef;
   skill: SkillDef;
   ultimate: SkillDef;
+  /** 后台赋能：位于后台时周期性自动施放的技能 */
+  backSkill: SkillDef;
+  /** 后台强度基准值（后台赋能伤害/治疗/护盾的属性基准） */
+  backPower: number;
   passive: PassiveDef;
   flavor: string;
 }
@@ -109,13 +113,15 @@ export interface TeamFlags {
   onKillAtk: number;
   /** 开战能量比例 */
   energyStart: number;
+  /** 后台强度加成（策略/词缀预留） */
+  backPowerPct: number;
 }
 
 export const EMPTY_TEAM_FLAGS: TeamFlags = {
   atkPct: 0, defPct: 0, hpPct: 0, spdPct: 0, critRate: 0,
   followupChance: 0, dotAmp: 0, regenPct: 0, startShieldPct: 0,
   spStart: 0, spMaxBonus: 0, ultCharge: 0, healBonus: 0, dmgReduce: 0,
-  thorns: 0, onKillAtk: 0, energyStart: 0
+  thorns: 0, onKillAtk: 0, energyStart: 0, backPowerPct: 0
 };
 
 /** 单体装备提供的局部加成 */
@@ -212,6 +218,8 @@ export interface CombatUnit {
   char?: CharDef;
   passive: PassiveDef;
   unitFlags: UnitFlags;
+  /** 后台参战单位（不可被选中，周期施放后台赋能） */
+  backend?: boolean;
   /** 景元神君层数 */
   shenjunStacks: number;
   /** 破晓之刃击杀叠层 */
@@ -237,7 +245,7 @@ export type BattleEvent =
   | {
       t: 'act';
       uid: string;
-      kind: 'basic' | 'skill' | 'ult' | 'enemy' | 'counter' | 'shenjun' | 'zap' | 'dot' | 'followup' | 'thorns' | 'regen';
+      kind: 'basic' | 'skill' | 'ult' | 'enemy' | 'counter' | 'shenjun' | 'zap' | 'dot' | 'followup' | 'thorns' | 'regen' | 'backend';
       name: string;
       sp: number;
       hits: HitInfo[];

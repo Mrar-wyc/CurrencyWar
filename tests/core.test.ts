@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { charById } from '../src/data/characters';
 import { enemyById } from '../src/data/enemies';
 import { equipById, findCombine } from '../src/data/equipment';
+import { MATCH_CONFIG as CFG, SHOP_ODDS } from '../src/data/stages';
 import { simulateBattle } from '../src/battle/engine';
-import { buildAllyUnit } from '../src/logic/battle-build';
+import { buildAllyUnit, buildBackerUnit, buildBattleInput } from '../src/logic/battle-build';
 import {
   advanceNode, buyShop, buyExp, combineEquips, equipItemTo, newMatch, placeUnit,
   recallUnit, resolveBattle, sellUnit, unequipItem, sellValue
@@ -14,6 +15,26 @@ import type { MatchState, OwnedUnit } from '../src/logic/types';
 
 function mkUnit(charId: string, star: 1 | 2 | 3 = 1, slot: OwnedUnit['slot'] = null): OwnedUnit {
   return { uid: `t_${Math.random().toString(36).slice(2)}`, charId, star, slot, equips: [] };
+}
+
+/** 构建一个前台战斗单位（引擎输入用） */
+function ally(charId: string, star: 1 | 2 | 3 = 1) {
+  return buildAllyUnit(mkUnit(charId, star, { row: 'front', index: 0 }), 0, EMPTY_TEAM_FLAGS);
+}
+
+/** 构建一个敌方战斗单位（引擎输入用） */
+function mkEnemy(id: string, mul = 1) {
+  const e = enemyById(id);
+  return {
+    uid: 'en1', name: e.name, side: 'enemy' as const, color: e.color, boss: false,
+    maxHp: Math.round(e.hp * mul), hp: Math.round(e.hp * mul), atk: Math.round(e.atk * mul),
+    def: Math.round(e.def * mul), spd: e.spd, critRate: 0.05, critDmg: 1.5, maxEnergy: 0, energy: 0,
+    shield: 0, buffs: [], dots: [], alive: true, moves: e.moves, moveIdx: 0,
+    passive: { type: 'none' as const }, unitFlags: {
+      atkPct: 0, defPct: 0, hpPct: 0, spdPct: 0, healBonus: 0, ultCharge: 0,
+      dmgReduce: 0, thorns: 0, onKillAtk: 0, energyStart: 0, regenPct: 0
+    }, shenjunStacks: 0, killStacks: 0, nextActionAt: 0, pos: 0
+  };
 }
 
 describe('商店与购买', () => {
@@ -182,41 +203,123 @@ describe('装备', () => {
 });
 
 describe('羁绊', () => {
-  it('统计阵营与流派', () => {
+  it('统计阵营与流派，后台不再提供全队 +4% 加成', () => {
     const board = [
       mkUnit('march7th', 1, { row: 'front', index: 0 }),
       mkUnit('danheng', 1, { row: 'front', index: 1 }),
       mkUnit('asta', 1, { row: 'back', index: 0 })
     ];
     const flags = computeTeamFlags(board);
-    // 列车同行 3 人（阈值2）：生命+8%；后台 1 人：攻击+4%、生命+4%
-    expect(flags.hpPct).toBeCloseTo(0.12);
-    expect(flags.atkPct).toBeCloseTo(0.04);
+    // 列车同行 3 人（阈值2）：生命+8%；后台 1 人无额外加成（参战贡献走后台赋能）
+    expect(flags.hpPct).toBeCloseTo(0.08);
+    expect(flags.atkPct).toBeCloseTo(0);
+  });
+});
+
+describe('商店概率与等级上限（官方表）', () => {
+  it('概率表完整性：Lv1-10 齐全，每行合计 100，Lv1-3 全 1 费', () => {
+    for (let lv = 1; lv <= 10; lv++) {
+      const odds = SHOP_ODDS[lv];
+      expect(odds, `Lv${lv} 缺失`).toBeDefined();
+      expect(odds.reduce((a, b) => a + b, 0)).toBe(100);
+    }
+    for (const lv of [1, 2, 3]) {
+      expect(SHOP_ODDS[lv]).toEqual([100, 0, 0, 0, 0]);
+    }
+    // Lv10：5 费 25%
+    expect(SHOP_ODDS[10][4]).toBe(25);
+  });
+
+  it('等级上限 10，经验表覆盖到 9→10', () => {
+    expect(CFG.maxLevel).toBe(10);
+    expect(CFG.expToNext[9]).toBeGreaterThan(0);
+  });
+});
+
+describe('后台机制', () => {
+  it('后台强度随星级缩放', () => {
+    const c = charById('seele');
+    const b1 = buildBackerUnit(mkUnit('seele', 1, { row: 'back', index: 0 }), 0, { ...EMPTY_TEAM_FLAGS });
+    const b3 = buildBackerUnit(mkUnit('seele', 3, { row: 'back', index: 0 }), 0, { ...EMPTY_TEAM_FLAGS });
+    expect(b1.atk).toBe(c.backPower);
+    expect(b3.atk).toBe(Math.round(c.backPower * 3.2));
+    expect(b1.backend).toBe(true);
+    expect(b1.maxEnergy).toBe(0);
+  });
+
+  it('buildBattleInput 把后台角色编译为 backers，前台不含后台单位', () => {
+    const st = newMatch();
+    const f = mkUnit('march7th', 1, { row: 'front', index: 0 });
+    const b = mkUnit('seele', 1, { row: 'back', index: 0 });
+    st.bench = [f, b];
+    st.board = [f, b];
+    const input = buildBattleInput(st);
+    expect(input.allies).toHaveLength(1);
+    expect(input.allies[0].uid).toBe(f.uid);
+    expect(input.backers).toHaveLength(1);
+    expect(input.backers[0].uid).toBe(b.uid);
+    expect(input.backers[0].atk).toBe(charById('seele').backPower);
+  });
+
+  it('后台单位周期施放赋能造成伤害，且不会被敌人选中', () => {
+    const backer = buildBackerUnit(mkUnit('seele', 3, { row: 'back', index: 0 }), 0, { ...EMPTY_TEAM_FLAGS });
+    const res = simulateBattle({
+      allies: [ally('march7th', 3)],
+      backers: [backer],
+      enemies: [mkEnemy('automaton_bear', 2)],
+      spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 14,
+      teamFlags: { ...EMPTY_TEAM_FLAGS }
+    });
+    const backendActs = res.events.filter(e => e.t === 'act' && e.kind === 'backend');
+    expect(backendActs.length).toBeGreaterThan(0);
+    // 后台赋能命中敌人造成伤害
+    const dmg = backendActs.flatMap(e => (e.t === 'act' ? e.hits : [])).filter(h => h.dmg !== undefined);
+    expect(dmg.length).toBeGreaterThan(0);
+    // 敌人所有攻击都落在前台单位上，绝不命中后台单位
+    const enemyTargets = res.events
+      .filter(e => e.t === 'act' && e.kind === 'enemy')
+      .flatMap(e => (e.t === 'act' ? e.hits : []));
+    expect(enemyTargets.length).toBeGreaterThan(0);
+    for (const h of enemyTargets) expect(h.uid).not.toBe(backer.uid);
+  });
+
+  it('后台治疗赋能生效（娜塔莎巡诊）', () => {
+    const backer = buildBackerUnit(mkUnit('natasha', 2, { row: 'back', index: 0 }), 0, { ...EMPTY_TEAM_FLAGS });
+    const res = simulateBattle({
+      allies: [ally('march7th', 3)],
+      backers: [backer],
+      enemies: [mkEnemy('automaton_bear', 1)],
+      spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 14,
+      teamFlags: { ...EMPTY_TEAM_FLAGS }
+    });
+    const heals = res.events
+      .filter(e => e.t === 'act' && e.kind === 'backend')
+      .flatMap(e => (e.t === 'act' ? e.hits : []))
+      .filter(h => h.heal !== undefined);
+    expect(heals.length).toBeGreaterThan(0);
+  });
+
+  it('后台增益赋能生效（停云全队攻击祝福）', () => {
+    const backer = buildBackerUnit(mkUnit('tingyun', 1, { row: 'back', index: 0 }), 0, { ...EMPTY_TEAM_FLAGS });
+    const front = ally('march7th', 1);
+    const res = simulateBattle({
+      allies: [front],
+      backers: [backer],
+      // 高血低攻敌人：战斗必然持续到敌方行动上限，末尾必定仍有存续的攻击增益
+      enemies: [mkEnemy('boss_p3', 0.2)],
+      spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 8,
+      teamFlags: { ...EMPTY_TEAM_FLAGS }
+    });
+    expect(res.events.some(e => e.t === 'act' && e.kind === 'backend')).toBe(true);
+    expect(front.buffs.some(bf => (bf.atkPct ?? 0) > 0)).toBe(true);
   });
 });
 
 describe('战斗引擎', () => {
-  function ally(charId: string, star: 1 | 2 | 3 = 1) {
-    return buildAllyUnit(mkUnit(charId, star, { row: 'front', index: 0 }), 0, EMPTY_TEAM_FLAGS);
-  }
-
-  function mkEnemy(id: string, mul = 1) {
-    const e = enemyById(id);
-    return {
-      uid: 'en1', name: e.name, side: 'enemy' as const, color: e.color, boss: false,
-      maxHp: Math.round(e.hp * mul), hp: Math.round(e.hp * mul), atk: Math.round(e.atk * mul),
-      def: Math.round(e.def * mul), spd: e.spd, critRate: 0.05, critDmg: 1.5, maxEnergy: 0, energy: 0,
-      shield: 0, buffs: [], dots: [], alive: true, moves: e.moves, moveIdx: 0,
-      passive: { type: 'none' as const }, unitFlags: {
-        atkPct: 0, defPct: 0, hpPct: 0, spdPct: 0, healBonus: 0, ultCharge: 0,
-        dmgReduce: 0, thorns: 0, onKillAtk: 0, energyStart: 0, regenPct: 0
-      }, shenjunStacks: 0, killStacks: 0, nextActionAt: 0, pos: 0
-    };
-  }
-
   it('强我弱敌能获胜且事件流完整', () => {
     const res = simulateBattle({
       allies: [ally('seele', 3), ally('march7th', 3), ally('bailu', 2)],
+      backers: [],
       enemies: [mkEnemy('swarm_wing', 0.5)],
       spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 14,
       teamFlags: { ...EMPTY_TEAM_FLAGS }
@@ -236,6 +339,7 @@ describe('战斗引擎', () => {
   it('超时判负', () => {
     const res = simulateBattle({
       allies: [ally('march7th')],
+      backers: [],
       enemies: [mkEnemy('automaton_bear', 3)],
       spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 4,
       teamFlags: { ...EMPTY_TEAM_FLAGS }
@@ -247,6 +351,7 @@ describe('战斗引擎', () => {
   it('战技点机制：普攻回复、战技消耗', () => {
     const res = simulateBattle({
       allies: [ally('danheng', 2)],
+      backers: [],
       enemies: [mkEnemy('swarm_node', 0.3)],
       spStart: 1, spMax: 5, shieldPct: 0, enemyActionLimit: 10,
       teamFlags: { ...EMPTY_TEAM_FLAGS }
@@ -263,6 +368,7 @@ describe('战斗引擎', () => {
     // 1★卡芙卡 + 双治疗 vs 高血量敌人：靠触电/灼烧磨死
     const res = simulateBattle({
       allies: [ally('kafka', 1), ally('bailu', 2), ally('natasha', 2)],
+      backers: [],
       enemies: [mkEnemy('automaton_bear', 2)],
       spStart: 5, spMax: 5, shieldPct: 0, enemyActionLimit: 16,
       teamFlags: { ...EMPTY_TEAM_FLAGS, regenPct: 0.02 }
