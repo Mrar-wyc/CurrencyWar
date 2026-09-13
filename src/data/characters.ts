@@ -1,14 +1,15 @@
 import type { CharDef } from '../logic/types';
 
 /**
- * 16 名角色（同人自用）。星级成长：2★ ×1.8、3★ ×3.2（hp/atk/def）。
+ * 24 名角色（路线④：按官方费用校准 + 扩池）。
+ * 费用已按官方 4.4 名单校准（docs §34）：卡芙卡 2 费、瓦尔特 5 费、娜塔莎 3 费、停云/青雀 1 费、希儿 3 费、景元 5 费。
+ * ⚠️ 自研补充：丹恒/素裳/白露/克拉拉不在官方 4.4 池中，为保留内容与旧存档兼容而留任（docs/开发进度.md §四）。
  * 每名角色含前台技能组（basic/skill/ultimate）与后台赋能（backSkill + backPower 后台强度基准）：
  * 后台角色不直接参战，而是周期性自动施放后台赋能，强度 = backPower × 星级倍率 × (1 + 加成)。
  * 阵营：列车同行 / 仙舟罗浮 / 贝洛伯格 / 星核猎手
  * 流派：群攻 / 爆发 / 追击 / 治疗 / 护盾 / 持续伤害
  */
 export const CHARACTERS: CharDef[] = [
-  // ============ 1 费 ============
   {
     id: 'march7th', name: '三月七', cost: 1, faction: 'express', tags: ['shield'],
     element: '冰', path: '存护', color: '#7db8e8',
@@ -17,7 +18,7 @@ export const CHARACTERS: CharDef[] = [
     skill: { name: '可爱即正义', desc: '为生命比例最低的队友附加 180% 攻击的护盾', target: 'ally', mult: 1.8 },
     ultimate: { name: '这是…冰之艺术！', desc: '对全体敌人造成 130% 冰伤，并为全队附加 50% 攻击的护盾', target: 'allEnemies', mult: 1.3, teamShield: 0.5 },
     backSkill: { name: '冰锥驰援', desc: '后台：对随机敌人造成 120% 后台强度的冰伤，并为全队附加 20% 后台强度的护盾', target: 'enemy', mult: 1.2, teamShield: 0.2 },
-    backPower: 240,
+    backPower: 300,
     passive: { type: 'none' },
     flavor: '「小心着凉哦，笨蛋！」'
   },
@@ -46,18 +47,17 @@ export const CHARACTERS: CharDef[] = [
     flavor: '「观测数据已就绪，全弹发射！」'
   },
   {
-    id: 'natasha', name: '娜塔莎', cost: 1, faction: 'belobog', tags: ['heal'],
+    id: 'natasha', name: '娜塔莎', cost: 3, faction: 'belobog', tags: ['heal'],
     element: '物理', path: '丰饶', color: '#7dd87d',
-    base: { hp: 1000, atk: 380, def: 300, spd: 96 }, critRate: 0.05, critDmg: 1.5, maxEnergy: 110,
+    base: { hp: 1200, atk: 470, def: 330, spd: 96 }, critRate: 0.05, critDmg: 1.5, maxEnergy: 110,
     basic: { name: '致命 Dosage', desc: '对敌方单体造成 100% 攻击的物理伤害', target: 'enemy', mult: 1.0 },
-    skill: { name: '甜甜的香气', desc: '治疗生命比例最低的队友 220% 攻击', target: 'ally', mult: 2.2 },
-    ultimate: { name: '复苏颂歌', desc: '治疗全队 170% 攻击', target: 'allAllies', mult: 1.7 },
-    backSkill: { name: '巡诊', desc: '后台：治疗生命比例最低的队友 150% 后台强度', target: 'ally', mult: 1.5 },
+    skill: { name: '甜甜的香气', desc: '治疗生命比例最低的队友 240% 攻击', target: 'ally', mult: 2.4 },
+    ultimate: { name: '复苏颂歌', desc: '治疗全队 190% 攻击', target: 'allAllies', mult: 1.9 },
+    backSkill: { name: '巡诊', desc: '后台：治疗生命比例最低的队友 160% 后台强度', target: 'ally', mult: 1.6 },
     backPower: 240,
     passive: { type: 'none' },
     flavor: '「忍一忍，很快就不疼了。」'
   },
-  // ============ 2 费 ============
   {
     id: 'serval', name: '希露瓦', cost: 2, faction: 'belobog', tags: ['aoe', 'dot'],
     element: '雷', path: '智识', color: '#b06ee0',
@@ -66,7 +66,7 @@ export const CHARACTERS: CharDef[] = [
     skill: { name: '爱的震击', desc: '对敌方单体造成 110% 雷伤并附加触电（每回合 50% 攻击，2 回合）', target: 'enemy', mult: 1.1, dot: { kind: 'shock', mult: 0.5, turns: 2 } },
     ultimate: { name: '机关浪漫', desc: '对全体敌人造成 110% 雷伤并附加触电（每回合 35% 攻击，2 回合）', target: 'allEnemies', mult: 1.1, dot: { kind: 'shock', mult: 0.35, turns: 2 } },
     backSkill: { name: '电磁脉冲', desc: '后台：对全体敌人造成 70% 后台强度的雷伤并附加触电（每回合 25% 后台强度，2 回合）', target: 'allEnemies', mult: 0.7, dot: { kind: 'shock', mult: 0.25, turns: 2 } },
-    backPower: 280,
+    backPower: 240,
     passive: { type: 'none' },
     flavor: '「摇滚永不为奴！」'
   },
@@ -95,30 +95,29 @@ export const CHARACTERS: CharDef[] = [
     flavor: '「正义的仙舟剑士，参上！」'
   },
   {
-    id: 'qingque', name: '青雀', cost: 2, faction: 'xianzhou', tags: ['aoe'],
+    id: 'qingque', name: '青雀', cost: 1, faction: 'xianzhou', tags: ['aoe'],
     element: '量子', path: '智识', color: '#5fd0a8',
-    base: { hp: 1020, atk: 445, def: 300, spd: 95 }, critRate: 0.05, critDmg: 1.5, maxEnergy: 125,
+    base: { hp: 1000, atk: 385, def: 300, spd: 95 }, critRate: 0.05, critDmg: 1.5, maxEnergy: 125,
     basic: { name: '摸鱼打法', desc: '对敌方单体造成 100% 攻击的量子伤', target: 'enemy', mult: 1.0 },
-    skill: { name: '海底捞月', desc: '对敌方单体造成 190% 量子伤', target: 'enemy', mult: 1.9 },
-    ultimate: { name: '杠上开花！', desc: '对全体敌人造成 140% 量子伤', target: 'allEnemies', mult: 1.4 },
-    backSkill: { name: '杠上开花·改', desc: '后台：对全体敌人造成 85% 后台强度的量子伤', target: 'allEnemies', mult: 0.85 },
+    skill: { name: '海底捞月', desc: '对敌方单体造成 170% 量子伤', target: 'enemy', mult: 1.7 },
+    ultimate: { name: '杠上开花！', desc: '对全体敌人造成 120% 量子伤', target: 'allEnemies', mult: 1.2 },
+    backSkill: { name: '杠上开花·改', desc: '后台：对全体敌人造成 75% 后台强度的量子伤', target: 'allEnemies', mult: 0.75 },
     backPower: 280,
     passive: { type: 'none' },
     flavor: '「再摸一张，就一张……」'
   },
   {
-    id: 'tingyun', name: '停云', cost: 2, faction: 'xianzhou', tags: ['single'],
+    id: 'tingyun', name: '停云', cost: 1, faction: 'xianzhou', tags: ['single'],
     element: '雷', path: '同谐', color: '#f0a0c0',
-    base: { hp: 980, atk: 400, def: 290, spd: 105 }, critRate: 0.05, critDmg: 1.5, maxEnergy: 110,
+    base: { hp: 980, atk: 370, def: 290, spd: 105 }, critRate: 0.05, critDmg: 1.5, maxEnergy: 110,
     basic: { name: '祥云掷签', desc: '对敌方单体造成 100% 攻击的雷伤', target: 'enemy', mult: 1.0 },
-    skill: { name: '旦遇恩泽', desc: '全队攻击 +18%（3 回合）', target: 'ally', mult: 0, buff: { atkPct: 0.18, turns: 3 } },
-    ultimate: { name: '妙音广布', desc: '对敌方单体造成 240% 雷伤，全队获得 15 点能量', target: 'enemy', mult: 2.4, teamEnergy: 15 },
-    backSkill: { name: '后台祝福', desc: '后台：全队攻击 +12%（3 回合）', target: 'ally', mult: 0, buff: { atkPct: 0.12, turns: 3 } },
-    backPower: 255,
+    skill: { name: '旦遇恩泽', desc: '全队攻击 +15%（3 回合）', target: 'ally', mult: 0, buff: { atkPct: 0.15, turns: 3 } },
+    ultimate: { name: '妙音广布', desc: '对敌方单体造成 220% 雷伤，全队获得 12 点能量', target: 'enemy', mult: 2.2, teamEnergy: 12 },
+    backSkill: { name: '后台祝福', desc: '后台：全队攻击 +10%（3 回合）', target: 'ally', mult: 0, buff: { atkPct: 0.10, turns: 3 } },
+    backPower: 245,
     passive: { type: 'none' },
     flavor: '「愿旅途顺遂，财源广进～」'
   },
-  // ============ 3 费 ============
   {
     id: 'himeko', name: '姬子', cost: 3, faction: 'express', tags: ['aoe', 'dot'],
     element: '火', path: '智识', color: '#f2884b',
@@ -132,13 +131,13 @@ export const CHARACTERS: CharDef[] = [
     flavor: '「咖啡煮好了，战斗也结束吧。」'
   },
   {
-    id: 'welt', name: '瓦尔特', cost: 3, faction: 'express', tags: ['aoe'],
+    id: 'welt', name: '瓦尔特', cost: 5, faction: 'express', tags: ['aoe'],
     element: '虚数', path: '虚无', color: '#9d7ce8',
-    base: { hp: 1150, atk: 500, def: 330, spd: 98 }, critRate: 0.05, critDmg: 1.5, maxEnergy: 115,
+    base: { hp: 1300, atk: 600, def: 360, spd: 98 }, critRate: 0.05, critDmg: 1.5, maxEnergy: 115,
     basic: { name: '虚空黑幕', desc: '对敌方单体造成 100% 攻击的虚数伤', target: 'enemy', mult: 1.0 },
-    skill: { name: '时空扭曲', desc: '弹射 3 段，每段对随机敌人造成 55% 虚数伤，首段目标速度 -10%（2 回合）', target: 'enemy', mult: 0.55, hits: 3, debuff: { spdPct: -0.10, turns: 2 } },
-    ultimate: { name: '边界再临', desc: '对全体敌人造成 115% 虚数伤，速度 -12%（2 回合）', target: 'allEnemies', mult: 1.15, debuff: { spdPct: -0.12, turns: 2 } },
-    backSkill: { name: '虚空支援', desc: '后台：弹射 3 段，每段对随机敌人造成 45% 后台强度的虚数伤，首段目标速度 -8%（2 回合）', target: 'enemy', mult: 0.45, hits: 3, debuff: { spdPct: -0.08, turns: 2 } },
+    skill: { name: '时空扭曲', desc: '弹射 3 段，每段对随机敌人造成 62% 虚数伤，首段目标速度 -10%（2 回合）', target: 'enemy', mult: 0.62, hits: 3, debuff: { spdPct: -0.10, turns: 2 } },
+    ultimate: { name: '边界再临', desc: '对全体敌人造成 130% 虚数伤，速度 -12%（2 回合）', target: 'allEnemies', mult: 1.3, debuff: { spdPct: -0.12, turns: 2 } },
+    backSkill: { name: '虚空支援', desc: '后台：弹射 3 段，每段对随机敌人造成 55% 后台强度的虚数伤，首段目标速度 -8%（2 回合）', target: 'enemy', mult: 0.55, hits: 3, debuff: { spdPct: -0.08, turns: 2 } },
     backPower: 320,
     passive: { type: 'none' },
     flavor: '「时间与重力，皆为我的武器。」'
@@ -167,43 +166,137 @@ export const CHARACTERS: CharDef[] = [
     passive: { type: 'counter', mult: 0.9 },
     flavor: '「史瓦罗会保护克拉拉，也会保护大家。」'
   },
-  // ============ 4 费 ============
   {
-    id: 'seele', name: '希儿', cost: 4, faction: 'belobog', tags: ['single'],
+    id: 'seele', name: '希儿', cost: 3, faction: 'belobog', tags: ['single'],
     element: '量子', path: '巡猎', color: '#c77dff',
-    base: { hp: 1150, atk: 570, def: 330, spd: 108 }, critRate: 0.12, critDmg: 1.5, maxEnergy: 100,
+    base: { hp: 1150, atk: 520, def: 330, spd: 108 }, critRate: 0.12, critDmg: 1.5, maxEnergy: 100,
     basic: { name: '蝶影突刺', desc: '对敌方单体造成 100% 攻击的量子伤', target: 'enemy', mult: 1.0 },
-    skill: { name: '蝴蝶梦我', desc: '对敌方单体造成 220% 量子伤', target: 'enemy', mult: 2.2 },
-    ultimate: { name: '掠影蝶翼', desc: '对敌方单体造成 460% 量子伤', target: 'enemy', mult: 4.6 },
-    backSkill: { name: '蝶影驰援', desc: '后台：对随机敌人造成 200% 后台强度的量子伤', target: 'enemy', mult: 2.0 },
-    backPower: 360,
+    skill: { name: '蝴蝶梦我', desc: '对敌方单体造成 200% 量子伤', target: 'enemy', mult: 2.0 },
+    ultimate: { name: '掠影蝶翼', desc: '对敌方单体造成 420% 量子伤', target: 'enemy', mult: 4.2 },
+    backSkill: { name: '蝶影驰援', desc: '后台：对随机敌人造成 180% 后台强度的量子伤', target: 'enemy', mult: 1.8 },
+    backPower: 330,
     passive: { type: 'killReset' },
     flavor: '「弱者，才没资格赢。」'
   },
   {
-    id: 'jingyuan', name: '景元', cost: 4, faction: 'xianzhou', tags: ['chase'],
+    id: 'jingyuan', name: '景元', cost: 5, faction: 'xianzhou', tags: ['chase'],
     element: '雷', path: '智识', color: '#e05d5d',
-    base: { hp: 1250, atk: 560, def: 340, spd: 96 }, critRate: 0.05, critDmg: 1.5, maxEnergy: 115,
+    base: { hp: 1300, atk: 615, def: 360, spd: 96 }, critRate: 0.05, critDmg: 1.5, maxEnergy: 115,
     basic: { name: '掣电伤锋', desc: '对敌方单体造成 100% 攻击的雷伤', target: 'enemy', mult: 1.0 },
-    skill: { name: '十王司判', desc: '弹射 2 段，每段对随机敌人造成 80% 雷伤', target: 'enemy', mult: 0.8, hits: 2 },
-    ultimate: { name: '神君敕令', desc: '对敌方单体造成 140% 雷伤，神君 +2 层', target: 'enemy', mult: 1.4 },
-    backSkill: { name: '神君遥击', desc: '后台：弹射 2 段，每段对随机敌人造成 65% 后台强度的雷伤', target: 'enemy', mult: 0.65, hits: 2 },
-    backPower: 355,
+    skill: { name: '十王司判', desc: '弹射 2 段，每段对随机敌人造成 90% 雷伤', target: 'enemy', mult: 0.9, hits: 2 },
+    ultimate: { name: '神君敕令', desc: '对敌方单体造成 150% 雷伤，神君 +2 层', target: 'enemy', mult: 1.5 },
+    backSkill: { name: '神君遥击', desc: '后台：弹射 2 段，每段对随机敌人造成 72% 后台强度的雷伤', target: 'enemy', mult: 0.72, hits: 2 },
+    backPower: 385,
     passive: { type: 'shenjun', init: 2, max: 4, mult: 0.5, ultGain: 2 },
     flavor: '「神君，请。」'
   },
-  // ============ 5 费 ============
   {
-    id: 'kafka', name: '卡芙卡', cost: 5, faction: 'stellaron', tags: ['dot', 'chase'],
+    id: 'kafka', name: '卡芙卡', cost: 2, faction: 'stellaron', tags: ['dot', 'chase'],
     element: '雷', path: '虚无', color: '#b06ee0',
-    base: { hp: 1300, atk: 620, def: 360, spd: 100 }, critRate: 0.08, critDmg: 1.5, maxEnergy: 110,
+    base: { hp: 1020, atk: 445, def: 300, spd: 100 }, critRate: 0.08, critDmg: 1.5, maxEnergy: 110,
     basic: { name: '月牙铁', desc: '对敌方单体造成 100% 攻击的雷伤', target: 'enemy', mult: 1.0 },
-    skill: { name: '窈窕醉月', desc: '对敌方单体造成 100% 雷伤并附加触电（每回合 90% 攻击，2 回合）', target: 'enemy', mult: 1.0, dot: { kind: 'shock', mult: 0.9, turns: 2 } },
-    ultimate: { name: '暮色朦胧', desc: '对全体敌人造成 90% 雷伤，并引爆其所有持续伤害（立即结算剩余伤害的 150%）', target: 'allEnemies', mult: 0.9, detonate: true },
-    backSkill: { name: '弦乐遥奏', desc: '后台：对随机敌人造成 70% 后台强度的雷伤并附加触电（每回合 40% 后台强度，2 回合）', target: 'enemy', mult: 0.7, dot: { kind: 'shock', mult: 0.4, turns: 2 } },
-    backPower: 380,
+    skill: { name: '窈窕醉月', desc: '对敌方单体造成 100% 雷伤并附加触电（每回合 65% 攻击，2 回合）', target: 'enemy', mult: 1.0, dot: { kind: 'shock', mult: 0.65, turns: 2 } },
+    ultimate: { name: '暮色朦胧', desc: '对全体敌人造成 80% 雷伤，并引爆其所有持续伤害（立即结算剩余伤害的 150%）', target: 'allEnemies', mult: 0.8, detonate: true },
+    backSkill: { name: '弦乐遥奏', desc: '后台：对随机敌人造成 60% 后台强度的雷伤并附加触电（每回合 30% 后台强度，2 回合）', target: 'enemy', mult: 0.6, dot: { kind: 'shock', mult: 0.3, turns: 2 } },
+    backPower: 270,
     passive: { type: 'dotZap', mult: 0.5 },
     flavor: '「跟着旋律起舞吧，弦乐团要开演了。」'
+  },
+  {
+    id: 'danheng_imbibitor', name: '丹恒•饮月', cost: 2, faction: 'express', tags: ['single'],
+    element: '虚数', path: '毁灭', color: '#5fd0c0',
+    base: { hp: 1020, atk: 450, def: 300, spd: 98 }, critRate: 0.10, critDmg: 1.5, maxEnergy: 110,
+    basic: { name: '瞻相', desc: '对敌方单体造成 100% 攻击的虚数伤', target: 'enemy', mult: 1.0 },
+    skill: { name: '亢心', desc: '对敌方单体造成 260% 攻击的虚数伤', target: 'enemy', mult: 2.6 },
+    ultimate: { name: '白夜朂焚', desc: '对敌方单体造成 400% 攻击的虚数伤', target: 'enemy', mult: 4.0 },
+    backSkill: { name: '月影驰援', desc: '后台：对随机敌人造成 200% 后台强度的虚数伤', target: 'enemy', mult: 2.0 },
+    backPower: 270,
+    passive: { type: 'none' },
+    flavor: '「罪与罚，皆由我承担。」'
+  },
+  {
+    id: 'sunday', name: '星期日', cost: 3, faction: 'express', tags: ['single'],
+    element: '虚数', path: '同谐', color: '#c8a0e8',
+    base: { hp: 1150, atk: 500, def: 320, spd: 96 }, critRate: 0.05, critDmg: 1.5, maxEnergy: 115,
+    basic: { name: '启示', desc: '对敌方单体造成 100% 攻击的虚数伤', target: 'enemy', mult: 1.0 },
+    skill: { name: '恩泽', desc: '全队攻击 +20%（2 回合）', target: 'ally', mult: 0, buff: { atkPct: 0.20, turns: 2 } },
+    ultimate: { name: '圣咏之诗', desc: '对全体敌人造成 110% 虚数伤，全队获得 15 点能量', target: 'allEnemies', mult: 1.1, teamEnergy: 15 },
+    backSkill: { name: '祝福驰援', desc: '后台：全队攻击 +10%（2 回合）', target: 'ally', mult: 0, buff: { atkPct: 0.10, turns: 2 } },
+    backPower: 300,
+    passive: { type: 'none' },
+    flavor: '「秩序，是最仁慈的枷锁。」'
+  },
+  {
+    id: 'huohuo', name: '藿藿', cost: 1, faction: 'xianzhou', tags: ['heal'],
+    element: '风', path: '丰饶', color: '#a8e0a0',
+    base: { hp: 1000, atk: 375, def: 300, spd: 96 }, critRate: 0.05, critDmg: 1.5, maxEnergy: 110,
+    basic: { name: '驱邪', desc: '对敌方单体造成 100% 攻击的风伤', target: 'enemy', mult: 1.0 },
+    skill: { name: '灵符佑护', desc: '治疗生命比例最低的队友 200% 攻击', target: 'ally', mult: 2.0 },
+    ultimate: { name: '尾巴显灵', desc: '治疗全队 150% 攻击，全队获得 10 点能量', target: 'allAllies', mult: 1.5, teamEnergy: 10 },
+    backSkill: { name: '巡夜驰援', desc: '后台：治疗生命比例最低的队友 140% 后台强度', target: 'ally', mult: 1.4 },
+    backPower: 235,
+    passive: { type: 'none' },
+    flavor: '「尾巴、尾巴又出来了啦！呜哇——」'
+  },
+  {
+    id: 'yanqing', name: '彦卿', cost: 4, faction: 'xianzhou', tags: ['single'],
+    element: '冰', path: '巡猎', color: '#8fd0ff',
+    base: { hp: 1150, atk: 565, def: 330, spd: 106 }, critRate: 0.20, critDmg: 1.6, maxEnergy: 100,
+    basic: { name: '快雪时晴', desc: '对敌方单体造成 100% 攻击的冰伤', target: 'enemy', mult: 1.0 },
+    skill: { name: '轻尘不动', desc: '对敌方单体造成 230% 攻击的冰伤', target: 'enemy', mult: 2.3 },
+    ultimate: { name: '天河泻', desc: '对敌方单体造成 440% 攻击的冰伤', target: 'enemy', mult: 4.4 },
+    backSkill: { name: '剑光驰援', desc: '后台：对随机敌人造成 190% 后台强度的冰伤', target: 'enemy', mult: 1.9 },
+    backPower: 340,
+    passive: { type: 'none' },
+    flavor: '「剑在，人在。」'
+  },
+  {
+    id: 'gepard', name: '杰帕德', cost: 4, faction: 'belobog', tags: ['shield'],
+    element: '冰', path: '存护', color: '#5a8fd0',
+    base: { hp: 1250, atk: 470, def: 400, spd: 92 }, critRate: 0.05, critDmg: 1.5, maxEnergy: 120,
+    basic: { name: '铗卫', desc: '对敌方单体造成 100% 攻击的冰伤', target: 'enemy', mult: 1.0 },
+    skill: { name: '壁垒', desc: '为全队附加 80% 攻击的护盾', target: 'allAllies', mult: 0.8, appliesShield: true },
+    ultimate: { name: '永固之城', desc: '为全队附加 160% 攻击的护盾', target: 'allAllies', mult: 1.6, appliesShield: true },
+    backSkill: { name: '盾墙驰援', desc: '后台：为全队附加 50% 后台强度的护盾', target: 'allAllies', mult: 0.5, appliesShield: true },
+    backPower: 285,
+    passive: { type: 'none' },
+    flavor: '「筑起城墙，一步不退。」'
+  },
+  {
+    id: 'sampo', name: '桑博', cost: 1, faction: 'belobog', tags: ['dot'],
+    element: '风', path: '虚无', color: '#8fd08f',
+    base: { hp: 1000, atk: 380, def: 290, spd: 98 }, critRate: 0.05, critDmg: 1.5, maxEnergy: 110,
+    basic: { name: '迷雾', desc: '对敌方单体造成 100% 攻击的风伤', target: 'enemy', mult: 1.0 },
+    skill: { name: '旋风步', desc: '弹射 2 段，每段 55% 风伤并附加灼烧（每回合 30% 攻击，2 回合）', target: 'enemy', mult: 0.55, hits: 2, dot: { kind: 'burn', mult: 0.30, turns: 2 } },
+    ultimate: { name: '风中残影', desc: '对全体敌人造成 70% 风伤并附加灼烧（每回合 25% 攻击，2 回合）', target: 'allEnemies', mult: 0.7, dot: { kind: 'burn', mult: 0.25, turns: 2 } },
+    backSkill: { name: '毒雾驰援', desc: '后台：对全体敌人造成 50% 后台强度的风伤并附加灼烧（每回合 20% 后台强度，2 回合）', target: 'allEnemies', mult: 0.5, dot: { kind: 'burn', mult: 0.20, turns: 2 } },
+    backPower: 240,
+    passive: { type: 'none' },
+    flavor: '「生意嘛，讲究的是互通有无～」'
+  },
+  {
+    id: 'blade', name: '刃', cost: 1, faction: 'stellaron', tags: ['dot'],
+    element: '风', path: '毁灭', color: '#d08f8f',
+    base: { hp: 1100, atk: 390, def: 310, spd: 94 }, critRate: 0.08, critDmg: 1.5, maxEnergy: 110,
+    basic: { name: '鞘中剑', desc: '对敌方单体造成 100% 攻击的风伤', target: 'enemy', mult: 1.0 },
+    skill: { name: '地狱变', desc: '对敌方单体造成 160% 攻击的风伤并附加灼烧（每回合 35% 攻击，2 回合）', target: 'enemy', mult: 1.6, dot: { kind: 'burn', mult: 0.35, turns: 2 } },
+    ultimate: { name: '大辟四方', desc: '对全体敌人造成 90% 攻击的风伤', target: 'allEnemies', mult: 0.9 },
+    backSkill: { name: '剑雨驰援', desc: '后台：对随机敌人造成 130% 后台强度的风伤并附加灼烧（每回合 25% 后台强度，2 回合）', target: 'enemy', mult: 1.3, dot: { kind: 'burn', mult: 0.25, turns: 2 } },
+    backPower: 245,
+    passive: { type: 'none' },
+    flavor: '「此身，是为利刃。」'
+  },
+  {
+    id: 'silverwolf', name: '银狼', cost: 4, faction: 'stellaron', tags: ['single'],
+    element: '量子', path: '虚无', color: '#9a7fd0',
+    base: { hp: 1150, atk: 555, def: 330, spd: 104 }, critRate: 0.12, critDmg: 1.5, maxEnergy: 105,
+    basic: { name: '审讯', desc: '对敌方单体造成 100% 攻击的量子伤', target: 'enemy', mult: 1.0 },
+    skill: { name: '版本更新', desc: '对敌方单体造成 180% 量子伤，防御 -30%（2 回合）', target: 'enemy', mult: 1.8, debuff: { defPct: -0.30, turns: 2 } },
+    ultimate: { name: '禁锢协议', desc: '对敌方单体造成 360% 量子伤，防御 -20%（2 回合）', target: 'enemy', mult: 3.6, debuff: { defPct: -0.20, turns: 2 } },
+    backSkill: { name: '骇入驰援', desc: '后台：对随机敌人造成 160% 后台强度的量子伤，其防御 -15%（2 回合）', target: 'enemy', mult: 1.6, debuff: { defPct: -0.15, turns: 2 } },
+    backPower: 335,
+    passive: { type: 'none' },
+    flavor: '「宇宙是个大游戏，而我开了修改器。」'
   }
 ];
 
