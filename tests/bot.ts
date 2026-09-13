@@ -90,7 +90,7 @@ export function playMatch(maxSteps = 400, onStep?: (st: MatchState) => void): Bo
         const input = startBattle(st)!;
         const snapshot = structuredClone(input);
         const res = simulateBattle(snapshot);
-        resolveBattle(st, res.win, res.enemyActions, input.enemyActionLimit, snapshot.enemies.filter(e => e.alive).length);
+        resolveBattle(st, res.win, res.ticks, input.enemyActionLimit, snapshot.enemies.filter(e => e.alive).length);
         break;
       }
       case 'reward': {

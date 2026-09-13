@@ -31,9 +31,9 @@ describe('单局诊断', () => {
         const rem = snapshot.enemies.filter(e => e.alive).length;
         console.log(
           `P${st.plane + 1}.${st.node} [${name}] 金${st.gold} Lv${st.level} | 我方:${stars} atk${pAtk}/hp${pHp} ` +
-          `| 敌atk${eAtk}/hp${eHp} | ${res.win ? '胜' : '败'} 行动${res.enemyActions}/${input.enemyActionLimit} 残敌${rem}`
+          `| 敌atk${eAtk}/hp${eHp} | ${res.win ? '胜' : '败'} 行动值${res.ticks}/${input.enemyActionLimit} 残敌${rem}`
         );
-        resolveBattle(st, res.win, res.enemyActions, input.enemyActionLimit, rem);
+        resolveBattle(st, res.win, res.ticks, input.enemyActionLimit, rem);
       } else if (st.phase === 'reward') {
         let idx = st.rewards.findIndex(r => r.kind === 'equip' && equipById(r.equipId!).tier === 'advanced');
         if (idx < 0) idx = st.rewards.findIndex(r => r.kind === 'equip');

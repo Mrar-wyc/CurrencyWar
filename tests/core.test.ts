@@ -364,7 +364,7 @@ describe('战斗引擎', () => {
       teamFlags: { ...EMPTY_TEAM_FLAGS }
     });
     expect(res.win).toBe(false);
-    expect(res.enemyActions).toBeLessThanOrEqual(4);
+    expect(res.ticks).toBeLessThanOrEqual(8);
   });
 
   it('战技点机制：普攻回复、战技消耗', () => {
@@ -427,6 +427,34 @@ describe('战斗引擎', () => {
       expect(harms[0].hits[0].uid).toBe(front.uid);
       expect(harms[0].hits[0].dmg).toBe(Math.round(front.maxHp * 0.7));
     }
+  });
+
+  it('行动值倒计时：双方行动均消耗，耗尽判负', () => {
+    const res = simulateBattle({
+      allies: [ally('march7th')],
+      backers: [],
+      enemies: [mkEnemy('automaton_bear', 3)],
+      spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 3,
+      teamFlags: { ...EMPTY_TEAM_FLAGS }
+    });
+    expect(res.win).toBe(false);
+    expect(res.ticks).toBe(6);
+    const end = res.events.find(e => e.t === 'end');
+    if (end?.t === 'end') expect(end.ticks).toBe(6);
+  });
+
+  it('行动值倒计时：追击等追加行动不消耗', () => {
+    const res = simulateBattle({
+      allies: [ally('march7th')],
+      backers: [],
+      enemies: [mkEnemy('boss_p3', 1)],
+      spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 15,
+      teamFlags: { ...EMPTY_TEAM_FLAGS, followupChance: 1 }
+    });
+    const followups = res.events.filter(e => e.t === 'act' && e.kind === 'followup').length;
+    expect(followups).toBeGreaterThan(0);
+    const consumed = res.events.filter(e => e.t === 'act' && (e.kind === 'basic' || e.kind === 'skill' || e.kind === 'ult' || e.kind === 'enemy' || e.kind === 'backend')).length;
+    expect(res.ticks).toBe(consumed);
   });
 });
 
