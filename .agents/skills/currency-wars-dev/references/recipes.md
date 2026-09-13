@@ -1,6 +1,6 @@
 # 扩展配方（recipes）
 
-数据驱动的精确接线步骤。改完任何数据后跑 `npm run typecheck && npm test`，平衡出带按 SKILL.md 的顺序回调。
+数据驱动的精确接线步骤。改完任何数据后跑 `npx tsc --noEmit && npx vitest run`，平衡出带按 balance-and-testing.md 的回调顺序处理。
 
 ## 1. 新增角色
 
