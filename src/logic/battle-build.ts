@@ -64,6 +64,7 @@ export function buildAllyUnit(u: OwnedUnit, pos: number, tf: TeamFlags, extraUni
     unitFlags: uf,
     shenjunStacks: c.passive.type === 'shenjun' ? c.passive.init : 0,
     killStacks: 0,
+    attackStacks: 0,
     nextActionAt: 0,
     pos
   };
@@ -103,6 +104,7 @@ export function buildBackerUnit(u: OwnedUnit, pos: number, tf: TeamFlags): Comba
     unitFlags: uf,
     shenjunStacks: 0,
     killStacks: 0,
+    attackStacks: 0,
     nextActionAt: 0,
     pos,
     backend: true
@@ -144,6 +146,7 @@ export function buildEnemies(node: BattleNode): CombatUnit[] {
         unitFlags: { ...EMPTY_UNIT_FLAGS },
         shenjunStacks: 0,
         killStacks: 0,
+    attackStacks: 0,
         nextActionAt: 0,
         pos: pos++
       });

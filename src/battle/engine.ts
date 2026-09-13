@@ -21,6 +21,7 @@ function effAtk(u: CombatUnit): number {
   let a = u.atk;
   for (const b of u.buffs) if (b.atkPct) a *= 1 + b.atkPct;
   a *= 1 + u.killStacks * u.unitFlags.onKillAtk;
+  a *= 1 + u.attackStacks * u.unitFlags.onHitAtk;
   return a;
 }
 
@@ -214,6 +215,12 @@ export function simulateBattle(input: BattleInput): BattleResult {
     }
 
     pushAct(u.uid, kind, def.name, hits);
+
+    // 火力风暴潮：造成伤害的攻击后攻击叠层（上限 5）
+    if (u.unitFlags.onHitAtk > 0 && def.mult > 0 && hits.length &&
+        (def.target === 'enemy' || def.target === 'allEnemies')) {
+      u.attackStacks = Math.min(5, u.attackStacks + 1);
+    }
 
     if (kind === 'ult') {
       u.energy = 0;

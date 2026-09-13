@@ -36,8 +36,9 @@ function mkEnemy(id: string, mul = 1) {
     shield: 0, buffs: [], dots: [], alive: true, moves: e.moves, moveIdx: 0,
     passive: { type: 'none' as const }, unitFlags: {
       atkPct: 0, defPct: 0, hpPct: 0, spdPct: 0, healBonus: 0, ultCharge: 0,
-      dmgReduce: 0, thorns: 0, onKillAtk: 0, energyStart: 0, regenPct: 0
-    }, shenjunStacks: 0, killStacks: 0, nextActionAt: 0, pos: 0
+      dmgReduce: 0, thorns: 0, onKillAtk: 0, energyStart: 0, regenPct: 0, onHitAtk: 0
+    }, shenjunStacks: 0, killStacks: 0,
+      attackStacks: 0, nextActionAt: 0, pos: 0
   };
 }
 

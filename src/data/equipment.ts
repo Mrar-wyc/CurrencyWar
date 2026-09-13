@@ -23,6 +23,22 @@ export const BASIC_EQUIPS: EquipDef[] = [
   {
     id: 'b_spd', name: '疾风晶石', tier: 'basic', color: '#f2c94c', scope: 'unit',
     desc: '速度 +8%', flags: { spdPct: 0.08 }
+  },
+  {
+    id: 'n_knife', name: '折叠小刀', tier: 'basic', color: '#ff9e7d', scope: 'unit',
+    desc: '攻击 +10%（官方：前台强度 +10%）', flags: { atkPct: 0.10 }
+  },
+  {
+    id: 'n_gun', name: '和平手枪', tier: 'basic', color: '#9fb8e8', scope: 'unit',
+    desc: '后台强度 +10%（全队）', flags: { backPowerPct: 0.10 }
+  },
+  {
+    id: 'n_battery', name: '光能电池', tier: 'basic', color: '#8fe3c0', scope: 'unit',
+    desc: '开战获得 12% 终结技能量（官方：初始能量 +15）', flags: { energyStart: 0.12 }
+  },
+  {
+    id: 'n_star', name: '幸运星', tier: 'basic', color: '#ffd97d', scope: 'unit',
+    desc: '暴击率 +5%（官方：幸运一击率 +5%，此处近似为全队）', flags: { critRate: 0.05 }
   }
 ];
 
@@ -76,6 +92,71 @@ export const ADVANCED_EQUIPS: EquipDef[] = [
     id: 'a_feather', name: '疾风之羽', tier: 'advanced', color: '#c9e265', scope: 'unit',
     desc: '速度 +10%，生命上限 +8%，终结技能量获取 +15%',
     flags: { spdPct: 0.10, hpPct: 0.08, ultCharge: 0.15 }, recipe: ['b_hp', 'b_spd']
+  },
+  {
+    id: 'a_storm', name: '火力风暴潮', tier: 'advanced', color: '#ff7b54', scope: 'unit',
+    desc: '攻击 +20%，速度 +10%；每次攻击后攻击再 +8%（最多叠 5 层）',
+    flags: { atkPct: 0.20, spdPct: 0.10, onHitAtk: 0.08 }, recipe: ['n_knife', 'n_knife']
+  },
+  {
+    id: 'a_boots', name: '反重力皮靴', tier: 'advanced', color: '#ffd66b', scope: 'unit',
+    desc: '速度 +20%，终结技能量获取 +10%（官方：每回合开始速度叠升，此处近似为常驻）',
+    flags: { spdPct: 0.20, ultCharge: 0.10 }, recipe: ['b_spd', 'n_knife']
+  },
+  {
+    id: 'a_master', name: '武器大师', tier: 'advanced', color: '#e8845d', scope: 'team',
+    desc: '全队攻击 +25%',
+    flags: { atkPct: 0.25 }, recipe: ['n_knife', 'n_gun']
+  },
+  {
+    id: 'a_hardarmor', name: '很硬的甲', tier: 'advanced', color: '#5d8aa8', scope: 'team',
+    desc: '全队受伤降低 18%',
+    flags: { dmgReduce: 0.18 }, recipe: ['b_def', 'n_gun']
+  },
+  {
+    id: 'a_lifering', name: '生命之环', tier: 'advanced', color: '#63c76a', scope: 'team',
+    desc: '全队生命上限 +15%',
+    flags: { hpPct: 0.15 }, recipe: ['b_hp', 'n_gun']
+  },
+  {
+    id: 'a_starblade', name: '碎星斩舰刀', tier: 'advanced', color: '#c0392b', scope: 'unit',
+    desc: '攻击 +60%',
+    flags: { atkPct: 0.60 }, recipe: ['b_atk', 'n_knife']
+  },
+  {
+    id: 'a_orbital', name: '天基轨道炮', tier: 'advanced', color: '#7db8e8', scope: 'team',
+    desc: '全队后台强度 +60%',
+    flags: { backPowerPct: 0.60 }, recipe: ['n_gun', 'n_gun']
+  },
+  {
+    id: 'a_perpetual', name: '永动机', tier: 'advanced', color: '#c77dff', scope: 'unit',
+    desc: '开战即充满终结技能量，终结技能量获取 +10%',
+    flags: { energyStart: 1.0, ultCharge: 0.10 }, recipe: ['n_battery', 'n_battery']
+  },
+  {
+    id: 'a_slipper', name: '电光履', tier: 'advanced', color: '#8fe3c0', scope: 'unit',
+    desc: '速度 +10%，终结技能量获取 +25%（官方：每回合回能量上限 10%，此处近似为充能）',
+    flags: { spdPct: 0.10, ultCharge: 0.25 }, recipe: ['b_spd', 'n_battery']
+  },
+  {
+    id: 'a_heat', name: '绝对热量', tier: 'advanced', color: '#ff9e7d', scope: 'unit',
+    desc: '生命上限 +10%，每次己方行动后回复 5% 生命上限（官方：小队行动回 20%，此处均摊近似）',
+    flags: { hpPct: 0.10, regenPct: 0.05 }, recipe: ['b_hp', 'n_battery']
+  },
+  {
+    id: 'a_flag', name: '胜利之旗', tier: 'advanced', color: '#ffd97d', scope: 'team',
+    desc: '全队战技点上限 +1，攻击 +10%',
+    flags: { spMaxBonus: 1, atkPct: 0.10 }, recipe: ['b_def', 'n_star']
+  },
+  {
+    id: 'a_exo', name: '自适应外骨骼', tier: 'advanced', color: '#9fb8e8', scope: 'unit',
+    desc: '防御 +20%，生命上限 +15%，受伤降低 5%',
+    flags: { defPct: 0.20, hpPct: 0.15, dmgReduce: 0.05 }, recipe: ['b_def', 'n_battery']
+  },
+  {
+    id: 'a_chainsaw', name: '高周波电锯', tier: 'advanced', color: '#d35400', scope: 'unit',
+    desc: '攻击 +30%，暴击率 +5%',
+    flags: { atkPct: 0.30, critRate: 0.05 }, recipe: ['n_star', 'n_knife']
   }
 ];
 

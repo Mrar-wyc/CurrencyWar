@@ -138,10 +138,12 @@ export interface UnitFlags {
   energyStart: number;
   /** 每次己方行动后回复 maxHP 比例（生机之种） */
   regenPct: number;
+  /** 每次攻击后攻击 +此值，可叠层（上限 5 层，火力风暴潮） */
+  onHitAtk: number;
 }
 
 export const EMPTY_UNIT_FLAGS: UnitFlags = {
-  atkPct: 0, defPct: 0, hpPct: 0, spdPct: 0, healBonus: 0, ultCharge: 0, dmgReduce: 0, thorns: 0, onKillAtk: 0, energyStart: 0, regenPct: 0
+  atkPct: 0, defPct: 0, hpPct: 0, spdPct: 0, healBonus: 0, ultCharge: 0, dmgReduce: 0, thorns: 0, onKillAtk: 0, energyStart: 0, regenPct: 0, onHitAtk: 0
 };
 
 // ================= 羁绊 =================
@@ -226,6 +228,8 @@ export interface CombatUnit {
   shenjunStacks: number;
   /** 破晓之刃击杀叠层 */
   killStacks: number;
+  /** 攻击叠层（onHitAtk，上限 5） */
+  attackStacks: number;
   nextActionAt: number;
   pos: number;
 }
