@@ -383,11 +383,13 @@ export function simulateBattle(input: BattleInput): BattleResult {
       enemyAct(actor);
     }
 
-    // 减员导致预算变化：同步时钟事件（渲染器据此更新倒计时显示）
-    const now = budget();
-    if (now !== lastClock) {
-      lastClock = now;
-      events.push({ t: 'clock', countdown: now });
+    // 减员导致预算变化：同步时钟事件（渲染器据此更新倒计时显示）；敌方清空后不再更新
+    if (aliveOf('enemy').length) {
+      const now = budget();
+      if (now !== lastClock) {
+        lastClock = now;
+        events.push({ t: 'clock', countdown: now });
+      }
     }
   }
 
