@@ -3,7 +3,7 @@ import { equipById } from '../data/equipment';
 import { MATCH_CONFIG as CFG, PLANES } from '../data/stages';
 import { GRADE_COLORS, GRADE_NAMES, strategyById } from '../data/strategies';
 import {
-  buyExp, buyShop, combineEquips, equipItemTo, findUnit, frontCapacity, placeUnit,
+  backCapacity, buyExp, buyShop, combineEquips, equipItemTo, findUnit, frontCapacity, placeUnit,
   recallUnit, reroll, sellUnit, sellValue, startBattle, toggleLock, unequipItem
 } from '../game/match';
 import { hasStrategy, rerollCostOf } from '../logic/strategy';
@@ -105,7 +105,7 @@ function boardRows(ctx: AppCtx): HTMLElement {
 
   const backRow = h('div', { class: 'slot-row back-row' });
   backRow.append(h('div', { class: 'row-label' }, `后台×${st.board.filter(u => u.slot?.row === 'back').length}`));
-  for (let i = 0; i < CFG.backSlots; i++) {
+  for (let i = 0; i < backCapacity(st); i++) {
     const u = st.board.find(x => x.slot?.row === 'back' && x.slot?.index === i);
     const slot = h('div', {
       class: `slot back ${u ? 'filled' : ''}`,
@@ -313,7 +313,7 @@ function detailPanel(ctx: AppCtx): HTMLElement {
 
 function firstFree(ctx: AppCtx, row: 'front' | 'back'): number {
   const st = ctx.st;
-  const cap = row === 'front' ? frontCapacity(st) : CFG.backSlots;
+  const cap = row === 'front' ? frontCapacity(st) : backCapacity(st);
   for (let i = 0; i < cap; i++) {
     if (!st.board.some(u => u.slot?.row === row && u.slot?.index === i)) return i;
   }
@@ -352,6 +352,9 @@ function intelPanel(ctx: AppCtx): HTMLElement {
       ));
     }
   }
+  if (st.wealthGem) {
+    panel.append(h('div', { class: 'intel-node' }, '👑 财富宝钻：后台位 +1，每 3 个备战阶段 +1 金'));
+  }
   panel.append(h('div', { class: 'hint tip' }, '提示：后台角色计入羁绊并周期性自动施放后台赋能（伤害取决于后台强度），不会被敌人攻击'));
   return panel;
 }
@@ -360,6 +363,10 @@ export function renderPrep(root: HTMLElement, ctx: AppCtx): void {
   const st = ctx.st;
   const node = PLANES[st.plane].nodes[st.node];
   const nodeName = node.kind === 'battle' || node.kind === 'boss' ? node.battle.name : '';
+  if (st.gemNew) {
+    st.gemNew = false;
+    toast('👑 击败首领，获得财富宝钻：后台位 +1，每 3 个备战阶段 +1 金');
+  }
 
   // 顶栏
   const topbar = h('div', { class: 'topbar' },

@@ -340,6 +340,11 @@ export interface MatchState {
   freeRerolls: number;
   /** 免费购买次数（策略发放，buyShop 优先消耗） */
   freeBuys: number;
+  /** 财富宝钻（首个首领战胜利获得）：后台位 +1，每 3 个备战阶段 +1 金 */
+  wealthGem: boolean;
+  gemGoldTick: number;
+  /** 刚获得宝钻的一次性提示标记 */
+  gemNew?: boolean;
   /** 战斗快照（用于结果展示） */
   lastBattle?: { win: boolean; enemyActions: number; limit: number; remaining: number };
   /** 待领取的补给内容 */

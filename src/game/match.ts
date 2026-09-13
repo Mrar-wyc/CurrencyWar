@@ -34,6 +34,8 @@ export function newMatch(): MatchState {
     strategyData: {},
     freeRerolls: 0,
     freeBuys: 0,
+    wealthGem: false,
+    gemGoldTick: 0,
     seq: 1
   };
   st.shop = rollShop(st.level, st.pool);
@@ -168,6 +170,11 @@ export function frontCapacity(st: MatchState): number {
   return Math.min(CFG.frontSlots, st.level);
 }
 
+/** 后台位容量：财富宝钻 +1（官方"团队规模 +1"的简化） */
+export function backCapacity(st: MatchState): number {
+  return CFG.backSlots + (st.wealthGem ? 1 : 0);
+}
+
 export function boardFull(st: MatchState): boolean {
   return st.board.length >= st.level;
 }
@@ -175,7 +182,7 @@ export function boardFull(st: MatchState): boolean {
 export function placeUnit(st: MatchState, uid: string, row: 'front' | 'back', index: number): string | null {
   if (st.phase !== 'prep') return '当前不能调整站位';
   if (row === 'front' && index >= CFG.frontSlots) return '前台位置不存在';
-  if (row === 'back' && index >= CFG.backSlots) return '后台位置不存在';
+  if (row === 'back' && index >= backCapacity(st)) return '后台位置不存在';
   const u = findUnit(st, uid);
   if (!u) return '找不到该角色';
   // 同一角色（同名）只能上阵一个：前台/后台合计
@@ -320,6 +327,11 @@ export function resolveBattle(st: MatchState, win: boolean, enemyActions: number
   if (win && hasStrategy(st, 'struggle_protocol') && node.kind === 'boss') {
     st.hp = Math.min(CFG.startHp, st.hp + 50);
   }
+  // 财富宝钻：首个首领战胜利获得（每局 1 枚）
+  if (win && node.kind === 'boss' && !st.wealthGem) {
+    st.wealthGem = true;
+    st.gemNew = true;
+  }
   gainExp(st, CFG.freeExpPerRound);
   st.gold += income;
   st.lastBattle = { win, enemyActions, limit, remaining };
@@ -360,6 +372,11 @@ export function advanceNode(st: MatchState): void {
     st.strategyOffers = rollStrategyOffers();
     st.phase = 'strategy';
   } else {
+    // 财富宝钻：每 3 个备战阶段 +1 金
+    if (st.wealthGem) {
+      st.gemGoldTick++;
+      if (st.gemGoldTick % 3 === 0) st.gold += 1;
+    }
     autoRefreshShop(st);
     st.phase = 'prep';
   }

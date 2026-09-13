@@ -47,6 +47,8 @@ function migrateMatch(cur: MatchState): void {
     : {};
   cur.freeRerolls = typeof cur.freeRerolls === 'number' && Number.isFinite(cur.freeRerolls) ? cur.freeRerolls : 0;
   cur.freeBuys = typeof cur.freeBuys === 'number' && Number.isFinite(cur.freeBuys) ? cur.freeBuys : 0;
+  cur.wealthGem = cur.wealthGem === true;
+  cur.gemGoldTick = typeof cur.gemGoldTick === 'number' && Number.isFinite(cur.gemGoldTick) ? cur.gemGoldTick : 0;
   if (cur.phase === 'strategy' && cur.strategyOffers.length === 0) cur.phase = 'prep';
 }
 
