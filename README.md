@@ -53,7 +53,8 @@ cd android && ./gradlew assembleDebug   # 打 APK
 
 - 技术栈：Vite + TypeScript + Canvas 2D（零运行时依赖）+ Capacitor 7
 - 结构：`src/data`（角色/羁绊/装备/敌人/关卡数据表）· `src/logic`（经济/商店/升星/羁绊，纯函数可单测）
-  · `src/battle`（战斗引擎 + Canvas 回放渲染器）· `src/game`（对局状态机/存档）· `src/ui`（六大界面）
+  · `src/battle`（战斗引擎 + Canvas 回放渲染器）· `src/game`（对局状态机/存档）
+  · `src/ui`（六大界面 + `icons.ts` 内联 SVG 图标库，折中紫罗兰官方风主题，规范见 `docs/开发进度.md` §九）
 - 本机工具链：JDK 21 与 Android SDK 位于 `tools/`（`source tools/env.sh` 后可直接用 gradle/adb）
 - 调试钩子：浏览器访问 `?debug`，控制台 `__game.setPhase('victory')`、`__game.cheat()`
 

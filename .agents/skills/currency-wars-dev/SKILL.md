@@ -36,8 +36,8 @@ src/data/     内容数据表：characters(角色+后台赋能) traits equipment
 src/logic/    纯函数：types(领域类型) shop synergy strategy(策略效果分流) battle-build(战前编译)
 src/battle/   engine.ts(无头模拟,产出事件流) + renderer.ts(Canvas 回放)——逻辑与表现分离
 src/game/     match.ts(对局状态机) + save.ts(存档,migrateMatch 迁移与脏数据防御)
-src/ui/       menu/prep/battle/strategy/overlays/codex/help——禁止在此写游戏规则
-docs/         官方规则详解（规则权威）+ 开发进度（进度/近似清单/调参记录）
+src/ui/       menu/prep/battle/strategy/overlays/codex/help + icons.ts(内联SVG图标库)——禁止在此写游戏规则；主题 token 在 src/style.css :root
+docs/         官方规则详解（规则权威）+ 开发进度（进度/近似清单/调参记录/UI设计规范§九）
 tests/        core(57项) + balance(40局) + soak(300局不变量) + diag(单局诊断) + bot.ts(自动对局)
 android/      Capacitor 工程；tools/ 本机 JDK21+SDK（env.sh）；.github/workflows 云端打包
 ```
