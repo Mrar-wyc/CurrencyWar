@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">货币战争·零和博弈</string>
+    <string name="title_activity_main">货币战争·零和博弈</string>
+    <string name="package_name">com.zcode.currencywars</string>
+    <string name="custom_url_scheme">com.zcode.currencywars</string>
+</resources>
