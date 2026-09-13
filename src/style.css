@@ -526,7 +526,7 @@ button.disabled { opacity: 0.45; }
 .bh-name::before { content: '◆ '; color: var(--gold-text); font-size: 13px; }
 .bh-hp { color: #ffd7d7; }
 .battle-stage { position: relative; }
-.battle-canvas { width: 1280px; height: 636px; display: block; }
+.battle-canvas { width: 1280px; height: 674px; display: block; }
 .battle-controls {
   position: absolute;
   right: 18px; bottom: 16px;

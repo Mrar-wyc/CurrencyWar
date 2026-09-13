@@ -49,11 +49,14 @@ interface Bolt {
 }
 
 const W = 1280;
-const H = 720;
+/** 画布高 = 720 - 46px DOM 顶条，保证 1:1 不变形 */
+const H = 674;
+
+const FONT = "'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif";
 
 /**
  * 战斗事件流回放渲染器（Canvas 2D）——官方 HSR 布局：
- * 敌人在左（远景）、我方在右（近景）；行动条左上竖排；战技点右下；技能名横幅。
+ * 我方在左（近景）、敌人在右（远景）；行动条左上竖排；战技点右下；技能名横幅。
  */
 export class BattleRenderer {
   private ctx: CanvasRenderingContext2D;
@@ -120,17 +123,17 @@ export class BattleRenderer {
     }
   }
 
-  /** 敌人左侧远景（小），我方右侧近景（大）——HSR 战斗视角 */
+  /** 我方左侧近景（大），敌人右侧远景（小）——官方 HSR 战斗视角 */
   private layoutPos(side: 'ally' | 'enemy', pos: number, boss: boolean): { x: number; y: number; r: number } {
     if (side === 'enemy') {
       const col = Math.floor(pos / 3);
       const row = pos % 3;
       const r = boss ? 50 : 33;
-      return { x: 250 + col * 125, y: 285 + row * 135, r };
+      return { x: W - 250 - col * 125, y: 265 + row * 122, r };
     }
     const col = Math.floor(pos / 3);
     const row = pos % 3;
-    return { x: W - 300 - col * 140, y: 260 + row * 140, r: 40 };
+    return { x: 300 + col * 140, y: 250 + row * 135, r: 40 };
   }
 
   setSpeed(s: number): void {
@@ -288,33 +291,66 @@ export class BattleRenderer {
 
   private draw(ts: number): void {
     const ctx = this.ctx;
-    // 背景：深紫夜色（与亮紫 UI 呼应）
+    // 背景：深蓝紫夜空（官方战斗场景基调）
     const grad = ctx.createLinearGradient(0, 0, 0, H);
-    grad.addColorStop(0, '#171238');
+    grad.addColorStop(0, '#151138');
     grad.addColorStop(0.6, '#221a4d');
-    grad.addColorStop(1, '#2c1f52');
+    grad.addColorStop(1, '#2a2058');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, W, H);
     // 星点
     ctx.fillStyle = 'rgba(255,255,255,0.28)';
     for (let i = 0; i < 46; i++) {
       const sx = (i * 307) % W;
-      const sy = (i * 173) % 320;
+      const sy = (i * 173) % 300;
       ctx.fillRect(sx, sy, 2, 2);
     }
-    // 地面光带
-    const g2 = ctx.createLinearGradient(0, 560, 0, H);
-    g2.addColorStop(0, 'rgba(150,130,255,0)');
-    g2.addColorStop(1, 'rgba(150,130,255,0.16)');
-    ctx.fillStyle = g2;
-    ctx.fillRect(0, 560, W, H - 560);
-    ctx.fillStyle = 'rgba(255,255,255,0.10)';
-    ctx.fillRect(0, 590, W, 2);
+    // 中央竞技场地台（透视椭圆 + 紫色发光格线，官方场地质感）
+    const cx = W / 2;
+    const cy = 400;
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 540, 218, 0, 0, Math.PI * 2);
+    const arena = ctx.createRadialGradient(cx, cy, 60, cx, cy, 540);
+    arena.addColorStop(0, 'rgba(122,110,240,0.30)');
+    arena.addColorStop(0.7, 'rgba(90,80,200,0.14)');
+    arena.addColorStop(1, 'rgba(70,60,170,0.05)');
+    ctx.fillStyle = arena;
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255,217,138,0.35)';
+    ctx.stroke();
+    // 场地格线：纵向射线 + 横向弧
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(180,170,255,0.14)';
+    for (let i = -4; i <= 4; i++) {
+      ctx.beginPath();
+      ctx.moveTo(cx + i * 120, cy - 210);
+      ctx.lineTo(cx + i * 165, cy + 214);
+      ctx.stroke();
+    }
+    for (const k of [-140, -70, 0, 70, 140]) {
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + k, 540 * (1 - Math.abs(k) / 320), 218 * (1 - Math.abs(k) / 320), 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    // 敌我半场微光（我左紫 / 敌右红）
+    const allyGlow = ctx.createRadialGradient(320, 380, 30, 320, 380, 420);
+    allyGlow.addColorStop(0, 'rgba(138,143,245,0.14)');
+    allyGlow.addColorStop(1, 'rgba(138,143,245,0)');
+    ctx.fillStyle = allyGlow;
+    ctx.fillRect(0, 0, 640, H);
+    const enemyGlow = ctx.createRadialGradient(980, 380, 30, 980, 380, 420);
+    enemyGlow.addColorStop(0, 'rgba(255,120,120,0.10)');
+    enemyGlow.addColorStop(1, 'rgba(255,120,120,0)');
+    ctx.fillStyle = enemyGlow;
+    ctx.fillRect(640, 0, 640, H);
+    ctx.restore();
 
     // 竖排行动条（左上，官方样式）
     this.drawActionStrip();
     // 敌方行动限制（右上）
-    ctx.font = 'bold 17px system-ui';
+    ctx.font = `bold 17px ${FONT}`;
     ctx.textAlign = 'right';
     ctx.fillStyle = this.enemyActions > this.limit - 4 ? '#ff9d9d' : 'rgba(255,255,255,0.85)';
     ctx.fillText(`敌方行动 ${this.enemyActions}/${this.limit}`, W - 24, 40);
@@ -339,8 +375,20 @@ export class BattleRenderer {
       bg.addColorStop(0.8, tint[1]);
       bg.addColorStop(1, 'rgba(30,26,70,0)');
       ctx.fillStyle = bg;
-      ctx.fillRect(bx, by, bw, 44);
-      ctx.font = `bold ${this.bannerKind === 'ult' ? 24 : 20}px system-ui`;
+      // 两端斜切的横幅带（官方演出）
+      const skew = 14;
+      ctx.beginPath();
+      ctx.moveTo(bx + skew, by);
+      ctx.lineTo(bx + bw, by);
+      ctx.lineTo(bx + bw - skew, by + 44);
+      ctx.lineTo(bx, by + 44);
+      ctx.closePath();
+      ctx.fill();
+      // 两侧装饰竖线
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.fillRect(bx + skew + 8, by + 8, 2, 28);
+      ctx.fillRect(bx + bw - skew - 10, by + 8, 2, 28);
+      ctx.font = `bold ${this.bannerKind === 'ult' ? 24 : 20}px ${FONT}`;
       ctx.textAlign = 'center';
       ctx.fillStyle = this.bannerKind === 'ult' ? '#3a2a00' : '#ffffff';
       ctx.fillText(this.bannerText, W / 2, by + 30);
@@ -354,7 +402,7 @@ export class BattleRenderer {
     }
     // 后台支援栏标签
     if (this.backers.length) {
-      ctx.font = 'bold 13px system-ui';
+      ctx.font = `bold 14px ${FONT}`;
       ctx.fillStyle = 'rgba(110,220,200,0.85)';
       ctx.fillText('后台支援', 20, H - 78);
     }
@@ -394,7 +442,7 @@ export class BattleRenderer {
     this.floaters = this.floaters.filter(f => ts - f.born < f.life);
     for (const f of this.floaters) {
       const p = (ts - f.born) / f.life;
-      ctx.font = 'bold 24px system-ui';
+      ctx.font = `bold 24px ${FONT}`;
       ctx.fillStyle = f.color;
       ctx.strokeStyle = 'rgba(20,16,50,0.7)';
       ctx.lineWidth = 4;
@@ -406,10 +454,10 @@ export class BattleRenderer {
     }
   }
 
-  /** 左上角竖排行动条：第一个大金框，其余小 */
+  /** 左上角竖排行动条：第一个大金框，其余小（带深色底托） */
   private drawActionStrip(): void {
     const ctx = this.ctx;
-    ctx.font = 'bold 15px system-ui';
+    ctx.font = `bold 15px ${FONT}`;
     ctx.fillStyle = 'rgba(255,255,255,0.75)';
     ctx.fillText('行动顺序', 20, 34);
     let n = 0;
@@ -423,6 +471,11 @@ export class BattleRenderer {
       const r = big ? 24 : 17;
       const cx = 20 + r + 4;
       const cy = 52 + (big ? 0 : n * 42 + 14);
+      // 深色底托
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + 4, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(20,16,50,0.55)';
+      ctx.fill();
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.fillStyle = v.alive ? v.color : '#4a4666';
@@ -437,7 +490,7 @@ export class BattleRenderer {
         ctx.stroke();
         ctx.globalAlpha = 0.75;
       }
-      ctx.font = `bold ${big ? 16 : 13}px system-ui`;
+      ctx.font = `bold ${big ? 16 : 14}px ${FONT}`;
       ctx.fillStyle = '#fff';
       ctx.fillText(v.name.slice(0, 4), cx + r + 10, cy + 6);
       ctx.globalAlpha = 1;
@@ -445,10 +498,10 @@ export class BattleRenderer {
     }
   }
 
-  /** 战技点：右下角（避开控制按钮区），官方位置 */
+  /** 战技点：右下角菱形宝石（官方位置，避开控制按钮区） */
   private drawSp(): void {
     const ctx = this.ctx;
-    ctx.font = 'bold 16px system-ui';
+    ctx.font = `bold 16px ${FONT}`;
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
     ctx.textAlign = 'right';
     ctx.fillText('战技点', W - 400, H - 66);
@@ -459,11 +512,27 @@ export class BattleRenderer {
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(Math.PI / 4);
-      ctx.fillStyle = i < this.sp ? '#ffd166' : 'rgba(255,255,255,0.22)';
-      ctx.fillRect(-8, -8, 16, 16);
       if (i < this.sp) {
+        const gem = ctx.createLinearGradient(-8, -8, 8, 8);
+        gem.addColorStop(0, '#ffe08a');
+        gem.addColorStop(1, '#f0a92e');
+        ctx.fillStyle = gem;
+        ctx.fillRect(-8, -8, 16, 16);
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 1.5;
+        ctx.strokeRect(-8, -8, 16, 16);
+        // 宝石高光
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-4, -1);
+        ctx.lineTo(-1, -4);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = 'rgba(255,255,255,0.20)';
+        ctx.fillRect(-8, -8, 16, 16);
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+        ctx.lineWidth = 1;
         ctx.strokeRect(-8, -8, 16, 16);
       }
       ctx.restore();
@@ -490,7 +559,7 @@ export class BattleRenderer {
       ctx.strokeStyle = 'rgba(110,220,200,0.9)';
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.font = 'bold 13px system-ui';
+      ctx.font = `bold 14px ${FONT}`;
       ctx.fillStyle = 'rgba(255,255,255,0.92)';
       ctx.textAlign = 'center';
       ctx.fillText(v.name, x, y + r + 16);
@@ -499,7 +568,12 @@ export class BattleRenderer {
       return;
     }
 
-    // 底座
+    // 阵营光环底座
+    ctx.beginPath();
+    ctx.ellipse(x, y + r + 10, r * 1.15, 12, 0, 0, Math.PI * 2);
+    ctx.fillStyle = v.side === 'ally' ? 'rgba(138,143,245,0.30)' : 'rgba(255,120,120,0.24)';
+    ctx.fill();
+    // 底影
     ctx.beginPath();
     ctx.ellipse(x, y + r + 10, r * 0.95, 9, 0, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
@@ -515,7 +589,7 @@ export class BattleRenderer {
     ctx.stroke();
 
     if (v.boss) {
-      ctx.font = 'bold 16px system-ui';
+      ctx.font = `bold 16px ${FONT}`;
       ctx.fillStyle = '#ffd166';
       ctx.textAlign = 'center';
       ctx.fillText('首领', x, y - r - 10);
@@ -523,7 +597,7 @@ export class BattleRenderer {
     }
 
     // 名字
-    ctx.font = 'bold 17px system-ui';
+    ctx.font = `bold 17px ${FONT}`;
     ctx.fillStyle = '#fff';
     ctx.textAlign = 'center';
     ctx.fillText(v.name, x, y + r + 28);
@@ -543,7 +617,7 @@ export class BattleRenderer {
       ctx.fillStyle = '#7db8e8';
       ctx.fillRect(bx, by - 6, bw * sh, 5);
     }
-    ctx.font = 'bold 13px system-ui';
+    ctx.font = `bold 14px ${FONT}`;
     ctx.fillStyle = 'rgba(255,255,255,0.9)';
     ctx.fillText(`${Math.max(0, Math.round(v.hp))}`, x - 16, by + 24);
 
@@ -555,7 +629,7 @@ export class BattleRenderer {
       ctx.lineWidth = 4;
       ctx.stroke();
       if (v.energy >= v.maxEnergy) {
-        ctx.font = 'bold 13px system-ui';
+        ctx.font = `bold 14px ${FONT}`;
         ctx.fillStyle = '#ffd166';
         ctx.textAlign = 'center';
         ctx.fillText('终结技!', x, y - r - 8);
@@ -566,7 +640,7 @@ export class BattleRenderer {
     // 持续伤害图标
     let ix = x - (v.dots - 1) * 9;
     for (let i = 0; i < v.dots; i++) {
-      ctx.font = '15px system-ui';
+      ctx.font = `15px ${FONT}`;
       ctx.fillText('⚡', ix, y - r - 6);
       ix += 18;
     }
