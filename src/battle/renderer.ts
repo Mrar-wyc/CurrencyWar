@@ -74,8 +74,10 @@ export class BattleRenderer {
   private current: BattleEvent | null = null;
   private sp = 0;
   private spMax = 5;
-  private limit = 0;
-  private enemyActions = 0;
+  private countdown = 0;
+  private ticks = 0;
+  /** 消耗行动值的行动类型（追击/反击/神君/dot/回复不消耗） */
+  private static readonly TICK_KINDS = new Set(['basic', 'skill', 'ult', 'enemy', 'backend']);
   private finished = false;
   private speed = 1;
   /** 技能名横幅（官方演出） */
@@ -176,11 +178,14 @@ export class BattleRenderer {
     if (ev.t === 'start') {
       this.sp = ev.sp;
       this.spMax = ev.spMax;
-      this.limit = ev.limit;
+      this.countdown = ev.countdown;
       this.evDur = 400;
+    } else if (ev.t === 'clock') {
+      this.countdown = ev.countdown;
+      this.evDur = 60;
     } else if (ev.t === 'act') {
       this.sp = ev.sp;
-      if (ev.kind === 'enemy') this.enemyActions++;
+      if (BattleRenderer.TICK_KINDS.has(ev.kind)) this.ticks++;
       this.evDur = 380 + ev.hits.length * 260;
       // 技能名横幅：普攻/战技/终结技/敌方技能/后台赋能/策略核爆
       if (ev.kind === 'basic' || ev.kind === 'skill' || ev.kind === 'ult' || ev.kind === 'enemy' || ev.kind === 'backend' || ev.kind === 'nuke') {
@@ -207,7 +212,11 @@ export class BattleRenderer {
     if (ev.t === 'start') {
       this.sp = ev.sp;
       this.spMax = ev.spMax;
-      this.limit = ev.limit;
+      this.countdown = ev.countdown;
+      return;
+    }
+    if (ev.t === 'clock') {
+      this.countdown = ev.countdown;
       return;
     }
     if (ev.t === 'act') {
@@ -352,8 +361,9 @@ export class BattleRenderer {
     // 敌方行动限制（右上）
     ctx.font = `bold 17px ${FONT}`;
     ctx.textAlign = 'right';
-    ctx.fillStyle = this.enemyActions > this.limit - 4 ? '#ff9d9d' : 'rgba(255,255,255,0.85)';
-    ctx.fillText(`敌方行动 ${this.enemyActions}/${this.limit}`, W - 24, 40);
+    const remain = Math.max(0, this.countdown - this.ticks);
+    ctx.fillStyle = remain <= 4 ? '#ff9d9d' : 'rgba(255,255,255,0.85)';
+    ctx.fillText(`⏳ 行动值 ${remain}/${this.countdown}`, W - 24, 40);
     ctx.textAlign = 'left';
 
     // 技能名横幅（顶部中央，官方演出）

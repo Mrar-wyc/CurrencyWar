@@ -354,7 +354,7 @@ function intelPanel(ctx: AppCtx): HTMLElement {
         enemyMark(!!e.boss, e.color, 14), `${e.name} ×${n}`
       ));
     }
-    panel.append(h('div', { class: 'hint' }, `敌方行动上限 ${b.enemyActionLimit} 次，超时判负`));
+    panel.append(h('div', { class: 'hint' }, '行动值倒计时制：双方每次行动都消耗行动值，耗尽判负'));
     panel.append(h('div', { class: 'hint' }, `战败扣 ${node.kind === 'boss' ? CFG.loseHpBoss : CFG.loseHpNormal} 点小队生命`));
   } else if (node.kind === 'strategy') {
     panel.append(h('div', { class: 'intel-node' }, '📈 投资策略'));

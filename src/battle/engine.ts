@@ -41,9 +41,25 @@ export function simulateBattle(input: BattleInput): BattleResult {
   const tf = input.teamFlags;
   const all = [...allies, ...enemies, ...backers];
   const events: BattleEvent[] = [];
+  /**
+   * 行动值倒计时（双方每次行动 -1，耗尽判负）：按存活编队的速度权重动态换算
+   * 「敌方行动上限」—— budget = 上限 × Σ存活权重 / Σ存活敌方权重（后台 ×0.4）。
+   * 单位阵亡即时重算：敌方减员→预算拉伸、我方减员→预算收缩，与旧「敌方行动计数」
+   * 制在一阶上逐局等价（平衡零漂移）；追击/反击/神君/dot 等追加结算不消耗。
+   */
+  const budget = (): number => {
+    let wAlly = 0;
+    let wEnemy = 0;
+    for (const a of allies) if (a.alive) wAlly += a.spd * (a.backend ? BACK_CAST_SPD_FACTOR : 1);
+    for (const b of backers) if (b.alive) wAlly += b.spd * BACK_CAST_SPD_FACTOR;
+    for (const e of enemies) if (e.alive) wEnemy += e.spd;
+    if (wEnemy <= 0) return input.enemyActionLimit;
+    return Math.max(1, Math.round((input.enemyActionLimit * (wAlly + wEnemy)) / wEnemy));
+  };
+  let lastClock = budget();
   let sp = Math.max(0, Math.min(input.spMax, input.spStart));
   const spMax = input.spMax;
-  let enemyActions = 0;
+  let ticks = 0;
   let win = false;
   const extraActions: string[] = [];
 
@@ -56,7 +72,7 @@ export function simulateBattle(input: BattleInput): BattleResult {
   for (const b of backers) {
     b.nextActionAt = AV / (effSpd(b) * BACK_CAST_SPD_FACTOR);
   }
-  events.push({ t: 'start', sp, spMax, limit: input.enemyActionLimit, shieldPct: input.shieldPct });
+  events.push({ t: 'start', sp, spMax, countdown: lastClock, shieldPct: input.shieldPct });
   // 当头一棒：开战对生命最高的敌人造成策略伤害并减防
   const mods = input.strategyMods ?? {};
   if (mods.nuke && allies.length) {
@@ -267,7 +283,7 @@ export function simulateBattle(input: BattleInput): BattleResult {
   }
 
   function enemyAct(u: CombatUnit): void {
-    enemyActions++;
+    ticks++;
     const mv = u.moves![u.moveIdx % u.moves!.length];
     u.moveIdx++;
     const hits: HitInfo[] = [];
@@ -314,7 +330,7 @@ export function simulateBattle(input: BattleInput): BattleResult {
       win = true;
       break;
     }
-    if (!aliveOf('ally').length || enemyActions >= input.enemyActionLimit) break;
+    if (!aliveOf('ally').length || ticks >= budget()) break;
 
     let actor: CombatUnit | null = null;
     for (const x of all) {
@@ -344,8 +360,10 @@ export function simulateBattle(input: BattleInput): BattleResult {
 
     if (actor.backend) {
       // 后台参战：只施放后台赋能，不耗战技点、不吃能量、不触发生机回复
+      ticks++;
       castSkill(actor, actor.char!.backSkill, 'backend');
     } else if (actor.side === 'ally') {
+      ticks++;
       allyAct(actor);
       // 希儿击杀再动
       if (extraActions.length && aliveOf('enemy').length) {
@@ -364,9 +382,16 @@ export function simulateBattle(input: BattleInput): BattleResult {
     } else {
       enemyAct(actor);
     }
+
+    // 减员导致预算变化：同步时钟事件（渲染器据此更新倒计时显示）
+    const now = budget();
+    if (now !== lastClock) {
+      lastClock = now;
+      events.push({ t: 'clock', countdown: now });
+    }
   }
 
   const remaining = aliveOf('enemy').length;
-  events.push({ t: 'end', win, enemyActions, remaining });
-  return { win, enemyActions, events };
+  events.push({ t: 'end', win, ticks, remaining });
+  return { win, ticks, events };
 }

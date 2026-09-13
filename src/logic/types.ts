@@ -247,7 +247,7 @@ export type HitInfo = {
 };
 
 export type BattleEvent =
-  | { t: 'start'; sp: number; spMax: number; limit: number; shieldPct: number }
+  | { t: 'start'; sp: number; spMax: number; countdown: number; shieldPct: number }
   | {
       t: 'act';
       uid: string;
@@ -256,11 +256,13 @@ export type BattleEvent =
       sp: number;
       hits: HitInfo[];
     }
-  | { t: 'end'; win: boolean; enemyActions: number; remaining: number };
+  | { t: 'clock'; countdown: number }
+  | { t: 'end'; win: boolean; ticks: number; remaining: number };
 
 export interface BattleResult {
   win: boolean;
-  enemyActions: number;
+  /** 消耗的行动值（双方每次行动 -1） */
+  ticks: number;
   events: BattleEvent[];
 }
 
@@ -269,7 +271,7 @@ export interface BattleResult {
 export interface BattleNode {
   name: string;
   enemies: { id: string; mul: number; count?: number }[];
-  /** 敌方行动次数上限，超过判负 */
+  /** 敌方行动上限（难度拨盘）：battle-build 换算为双方共享的行动值倒计时 */
   enemyActionLimit: number;
 }
 
@@ -346,7 +348,7 @@ export interface MatchState {
   /** 刚获得宝钻的一次性提示标记 */
   gemNew?: boolean;
   /** 战斗快照（用于结果展示） */
-  lastBattle?: { win: boolean; enemyActions: number; limit: number; remaining: number };
+  lastBattle?: { win: boolean; ticks: number; limit: number; remaining: number };
   /** 待领取的补给内容 */
   supplyItems?: string[];
   seq: number;

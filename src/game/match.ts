@@ -295,7 +295,7 @@ function rollRewards(): PendingReward[] {
 }
 
 /** 战斗结束结算：收入 → 扣血 → 推进节点 */
-export function resolveBattle(st: MatchState, win: boolean, enemyActions: number, limit: number, remaining: number, allyDeaths = 0): void {
+export function resolveBattle(st: MatchState, win: boolean, ticks: number, limit: number, remaining: number, allyDeaths = 0): void {
   const node = PLANES[st.plane].nodes[st.node];
   const interest = Math.min(CFG.interestCap, Math.floor(st.gold / 10));
   let income = CFG.baseIncome + interest;
@@ -334,7 +334,7 @@ export function resolveBattle(st: MatchState, win: boolean, enemyActions: number
   }
   gainExp(st, CFG.freeExpPerRound);
   st.gold += income;
-  st.lastBattle = { win, enemyActions, limit, remaining };
+  st.lastBattle = { win, ticks, limit, remaining };
   if (st.hp <= 0) {
     st.hp = 0;
     st.phase = 'gameOver';

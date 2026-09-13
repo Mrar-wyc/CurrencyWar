@@ -58,8 +58,8 @@ const ctx: AppCtx = {
     persistMatch(save, requireSt());
     render();
   },
-  onBattleDone: (win, enemyActions, limit, remaining, allyDeaths) => {
-    resolveBattle(requireSt(), win, enemyActions, limit, remaining, allyDeaths ?? 0);
+  onBattleDone: (win, ticks, limit, remaining, allyDeaths) => {
+    resolveBattle(requireSt(), win, ticks, limit, remaining, allyDeaths ?? 0);
     pendingBattle = null;
     uiState.sel = null;
     persistMatch(save, requireSt());

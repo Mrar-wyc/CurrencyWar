@@ -163,6 +163,7 @@ export interface BattleInput {
   spStart: number;
   spMax: number;
   shieldPct: number;
+  /** 敌方行动上限（难度拨盘）：引擎据此随存活编队动态换算行动值倒计时 */
   enemyActionLimit: number;
   teamFlags: TeamFlags;
   /** 投资策略的战斗内修改器（当头一棒/风暴骑士） */

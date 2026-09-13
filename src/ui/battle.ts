@@ -49,14 +49,14 @@ export function renderBattle(root: HTMLElement, ctx: AppCtx, input: BattleInput)
         h('div', { class: `result-title ${win ? 'win' : 'lose'}` }, win ? '战 斗 胜 利' : '战 斗 失 败'),
         h('div', { class: 'result-sub' },
           win
-            ? `用时：敌方行动 ${result.enemyActions} 次`
+            ? `用时：消耗 ${result.ticks} 行动值`
             : `残余敌人 ${snapshot.enemies.filter(e => e.alive).length} 个 · 小队生命 -${node.kind === 'boss' ? 30 : 15}`
         ),
         h('button', {
           class: 'big-btn',
           onclick: () => {
             renderer.destroy();
-            ctx.onBattleDone(win, result.enemyActions, input.enemyActionLimit, snapshot.enemies.filter(e => e.alive).length, snapshot.allies.filter(a => !a.alive).length);
+            ctx.onBattleDone(win, result.ticks, input.enemyActionLimit, snapshot.enemies.filter(e => e.alive).length, snapshot.allies.filter(a => !a.alive).length);
           }
         }, '继 续')
       )

@@ -2,7 +2,8 @@ import type { PlaneDef } from '../logic/types';
 
 /**
  * 3 个位面的节点序列（近似还原原版结构：战斗/投资策略/奖励/补给/首领）。
- * mul = 敌人属性倍率；enemyActionLimit = 敌方行动次数上限（超时判负）。
+ * mul = 敌人属性倍率；enemyActionLimit = 敌方行动上限（难度拨盘，超时判负——
+ *      battle-build 会按编队速度权重把它换算为双方共享的「行动值倒计时」）。
  * strategy 节点 = 投资策略三选一（银/金两档，见 src/data/strategies.ts）。
  */
 export const PLANES: PlaneDef[] = [
