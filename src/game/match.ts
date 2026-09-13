@@ -251,6 +251,9 @@ function autoRefreshShop(st: MatchState): void {
 /** 进入备战：准备开战；返回战斗输入（返回 null 表示无法开战） */
 export function startBattle(st: MatchState): BattleInput | null {
   if (st.phase !== 'prep') return null;
+  // 防御：当前节点必须存在战斗定义（奖励/策略/补给节点不可出战）
+  const node = PLANES[st.plane].nodes[st.node];
+  if (node.kind !== 'battle' && node.kind !== 'boss') return null;
   if (!st.board.some(u => u.slot?.row === 'front')) return null;
   const input = buildBattleInput(st);
   st.phase = 'battle';
