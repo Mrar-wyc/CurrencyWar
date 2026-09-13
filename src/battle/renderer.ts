@@ -629,7 +629,7 @@ export class BattleRenderer {
       ctx.fillStyle = '#7db8e8';
       ctx.fillRect(bx, by - 6, bw * sh, 5);
     }
-    ctx.font = `bold 14px ${FONT}`;
+    ctx.font = `bold 15px ${FONT}`;
     ctx.fillStyle = 'rgba(255,255,255,0.9)';
     ctx.fillText(`${Math.max(0, Math.round(v.hp))}`, x - 16, by + 24);
 
