@@ -1,4 +1,5 @@
 import { MATCH_CONFIG as CFG } from '../data/stages';
+import { STRATEGIES } from '../data/strategies';
 import type { MatchState } from '../logic/types';
 
 const KEY = 'currencywars_save_v1';
@@ -23,10 +24,7 @@ export function loadSave(): SaveData {
     const data = JSON.parse(raw) as SaveData;
     const merged = { ...defaultSave(), ...data };
     if (merged.current) {
-      // 旧档迁移：投资策略字段默认值
-      merged.current.strategies ??= [];
-      merged.current.strategyOffers ??= [];
-      merged.current.strategyData ??= {};
+      migrateMatch(merged.current);
       if (merged.current.phase === 'battle' || merged.current.phase === 'gameOver' || merged.current.phase === 'victory') {
         merged.current.phase = 'prep';
       }
@@ -35,6 +33,19 @@ export function loadSave(): SaveData {
   } catch {
     return defaultSave();
   }
+}
+
+/** 旧档迁移与脏数据防御：补齐投资策略字段、过滤非法策略 id、空三选一回退备战 */
+function migrateMatch(cur: MatchState): void {
+  const known = new Set(STRATEGIES.map(s => s.id));
+  const validIds = (v: unknown): string[] =>
+    Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === 'string' && known.has(x)))] : [];
+  cur.strategies = validIds(cur.strategies);
+  cur.strategyOffers = validIds(cur.strategyOffers);
+  cur.strategyData = cur.strategyData && typeof cur.strategyData === 'object' && !Array.isArray(cur.strategyData)
+    ? cur.strategyData
+    : {};
+  if (cur.phase === 'strategy' && cur.strategyOffers.length === 0) cur.phase = 'prep';
 }
 
 export function writeSave(data: SaveData): void {
