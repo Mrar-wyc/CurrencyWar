@@ -37,14 +37,15 @@
 16 名角色（每名含前台技能组与专属后台赋能）/ 11 种敌人（3 位面首领）/ 14 种装备 /
 20 条投资策略 / 22 节点手工难度曲线。数值为近似还原：原版未公开的数值（刷新价、
 经验价、利息率、策略数值）参考同类自走棋成熟方案与官方机制记录。
-还原目标与开发路线见 `docs/官方规则详解.md`。
+还原基准与开发路线见 [`docs/官方规则详解.md`](docs/官方规则详解.md)，
+版本进度与调参记录见 [`docs/开发进度.md`](docs/开发进度.md)。
 
 ## 开发
 
 ```bash
 npm install          # 安装依赖
 npm run dev          # 浏览器试玩 http://localhost:5173
-npm test             # vitest 单测 + 自动对局平衡验证（机器人 40 局）
+npm test             # vitest 单测 + bot 平衡验证（40 局）+ soak 不变量（300 局）
 npm run build        # 产出 dist/
 npx cap sync android # 同步 Web 资源到安卓工程
 cd android && ./gradlew assembleDebug   # 打 APK
