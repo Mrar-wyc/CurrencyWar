@@ -128,17 +128,16 @@ export const MATCH_CONFIG = {
   baseIncome: 5,
   interestPer10: 1,
   interestCap: 5,
-  /** 连胜奖励档位 */
+  /** 连胜奖励档位（官方：封顶 +3，docs §29） */
   winStreakBonus(streak: number): number {
-    if (streak >= 8) return 4;
     if (streak >= 6) return 3;
     if (streak >= 4) return 2;
     if (streak >= 2) return 1;
     return 0;
   },
   lossCompensation: 2,
-  /** 升到下一级所需经验（索引 = 当前等级，从 3 级开始；9→10 官方数值未公开，按曲线外推） */
-  expToNext: { 3: 2, 4: 6, 5: 10, 6: 20, 7: 36, 8: 48, 9: 60 } as Record<number, number>,
+  /** 升到下一级所需经验（官方口径 docs §29：4/6/20/40/52/72/84；索引 = 当前等级） */
+  expToNext: { 3: 4, 4: 6, 5: 20, 6: 40, 7: 52, 8: 72, 9: 84 } as Record<number, number>,
   /** 失败扣血 */
   loseHpNormal: 15,
   loseHpBoss: 30,

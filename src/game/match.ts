@@ -32,6 +32,8 @@ export function newMatch(): MatchState {
     strategies: [],
     strategyOffers: [],
     strategyData: {},
+    freeRerolls: 0,
+    freeBuys: 0,
     seq: 1
   };
   st.shop = rollShop(st.level, st.pool);
@@ -80,11 +82,14 @@ export function buyShop(st: MatchState, idx: number): string | null {
   const offer = st.shop[idx];
   if (!offer?.charId) return '该商品已售出';
   const c = charById(offer.charId);
-  if (st.gold < c.cost) return '金币不足';
+  // 免费购买资源优先消耗（降本增效等策略发放）
+  const free = st.freeBuys > 0;
+  if (!free && st.gold < c.cost) return '金币不足';
   const promo4 = hasStrategy(st, 'promo4') && (st.strategyData.promo4 ?? 0) > 0 && c.cost === 4;
   const willMerge = countOwnedSame(st, c.id, 1) >= 2 || (promo4 && countOwnedSame(st, c.id, 2) >= 2);
   if (st.bench.length >= CFG.benchSlots && !willMerge) return '备战席已满';
-  st.gold -= c.cost;
+  if (free) st.freeBuys--;
+  else st.gold -= c.cost;
   offer.charId = null;
   const unit: OwnedUnit = { uid: `u${st.seq++}`, charId: c.id, star: 1, slot: null, equips: [] };
   // 四费晋升：下一个 4 费直接 2★
@@ -99,6 +104,13 @@ export function buyShop(st: MatchState, idx: number): string | null {
 
 export function reroll(st: MatchState): string | null {
   if (st.phase !== 'prep') return '当前不能刷新';
+  // 免费刷新资源优先消耗
+  if (st.freeRerolls > 0) {
+    st.freeRerolls--;
+    returnOffers(st.pool, st.shop);
+    st.shop = rollShop(st.level, st.pool);
+    return null;
+  }
   const cost = rerollCostOf(st);
   if (st.gold < cost) return '金币不足';
   st.gold -= cost;
@@ -124,10 +136,10 @@ export function gainExp(st: MatchState, n: number): void {
 export function buyExp(st: MatchState): string | null {
   if (st.phase !== 'prep') return '当前不能购买经验';
   if (st.level >= CFG.maxLevel) return '已达到最高等级';
-  // 奋斗协议：买经验改扣生命
+  // 奋斗协议（官方棱彩，暂以金色实装）：买经验改扣生命
   if (hasStrategy(st, 'struggle_protocol')) {
-    if (st.hp <= 2) return '生命不足';
-    st.hp -= 2;
+    if (st.hp <= 6) return '生命不足';
+    st.hp -= 6;
     gainExp(st, CFG.expGain);
     return null;
   }
@@ -284,10 +296,14 @@ export function resolveBattle(st: MatchState, win: boolean, enemyActions: number
     st.lossStreak = 0;
     st.battlesWon++;
     st.bestWinStreak = Math.max(st.bestWinStreak, st.winStreak);
+    // 官方：战斗胜利额外 +1 金（docs §29）
+    income += 1;
     // 伟大征服：连胜奖励 ×3
     income += CFG.winStreakBonus(st.winStreak) * (hasStrategy(st, 'great_conquest') ? 3 : 1);
     // 招财狗：每胜 +2
     if (hasStrategy(st, 'lucky_dog')) income += 2;
+    // 无伤通关（官方）：胜利且无人倒下 → +1 金
+    if (hasStrategy(st, 'no_damage') && allyDeaths === 0) income += 1;
   } else {
     st.lossStreak++;
     st.winStreak = 0;
@@ -295,16 +311,13 @@ export function resolveBattle(st: MatchState, win: boolean, enemyActions: number
     income += CFG.lossCompensation;
     st.hp -= node.kind === 'boss' ? CFG.loseHpBoss : CFG.loseHpNormal;
   }
-  // 无伤通关：下一场胜利且无人倒下（一次性）
-  if ((st.strategyData.no_damage ?? 0) > 0) {
-    st.strategyData.no_damage = 0;
-    if (win && allyDeaths === 0) income += 8;
-  }
+  // 无伤通关的一次性 pending 机制已废除（现改为常驻，见 win 分支）
+  if ((st.strategyData.no_damage ?? 0) > 0) st.strategyData.no_damage = 0;
   // 现金为王：护盾场数消耗
   if ((st.strategyData.cash_is_king ?? 0) > 0) st.strategyData.cash_is_king--;
-  // 奋斗协议：首领战胜利回血
+  // 奋斗协议：首领战胜利回血 50（官方数值）
   if (win && hasStrategy(st, 'struggle_protocol') && node.kind === 'boss') {
-    st.hp = Math.min(CFG.startHp, st.hp + 20);
+    st.hp = Math.min(CFG.startHp, st.hp + 50);
   }
   gainExp(st, CFG.freeExpPerRound);
   st.gold += income;
@@ -319,10 +332,12 @@ export function resolveBattle(st: MatchState, win: boolean, enemyActions: number
 
 /** 推进到下一节点并设置阶段 */
 export function advanceNode(st: MatchState): void {
-  // 超发货币：每推进 1 节点 +14（共 5 个节点）
-  if (hasStrategy(st, 'hyperinflation') && (st.strategyData.hyperinflation ?? 0) < 5) {
-    st.strategyData.hyperinflation = (st.strategyData.hyperinflation ?? 0) + 1;
-    st.gold += 14;
+  // 超发货币（官方）：失去全部金币，5 个节点后返还「失去数额 + 70」
+  if (hasStrategy(st, 'hyperinflation') && (st.strategyData.hyperinflation_nodes ?? 0) < 5) {
+    st.strategyData.hyperinflation_nodes = (st.strategyData.hyperinflation_nodes ?? 0) + 1;
+    if ((st.strategyData.hyperinflation_nodes ?? 0) >= 5) {
+      st.gold += (st.strategyData.hyperinflation_lost ?? 0) + 70;
+    }
   }
   st.node++;
   if (st.node >= PLANES[st.plane].nodes.length) {
@@ -378,17 +393,8 @@ function applyInstantStrategy(st: MatchState, id: string): void {
       tryMerge(st);
       break;
     }
+    // 大裁员（官方金色）：出售全部角色，双倍售价 + 6 次免费刷新
     case 'layoff_front': {
-      let gold = 0;
-      for (const u of st.board) {
-        gold += sellValue(u) * 2;
-        st.inventory.push(...u.equips);
-      }
-      st.board = [];
-      st.gold += gold;
-      break;
-    }
-    case 'layoff_all': {
       let gold = 0;
       for (const u of [...st.board, ...st.bench]) {
         gold += sellValue(u) * 2;
@@ -396,21 +402,57 @@ function applyInstantStrategy(st: MatchState, id: string): void {
       }
       st.board = [];
       st.bench = [];
-      st.gold += gold + 4;
+      st.gold += gold;
+      st.freeRerolls += 6;
       break;
     }
+    // 人力重组（官方银色）：出售全部角色 → 获得 2星3费×1 + 2星2费×2 + 2星1费×2
+    case 'layoff_all': {
+      for (const u of [...st.board, ...st.bench]) st.inventory.push(...u.equips);
+      st.board = [];
+      st.bench = [];
+      const grants: { cost: number; star: 1 | 2; count: number }[] = [
+        { cost: 3, star: 2, count: 1 },
+        { cost: 2, star: 2, count: 2 },
+        { cost: 1, star: 2, count: 2 }
+      ];
+      for (const g of grants) {
+        for (let i = 0; i < g.count; i++) {
+          const pool = CHARACTERS.filter(c => c.cost === g.cost);
+          const c = pool[Math.floor(Math.random() * pool.length)];
+          st.bench.push({ uid: `u${st.seq++}`, charId: c.id, star: g.star, slot: null, equips: [] });
+        }
+      }
+      tryMerge(st);
+      break;
+    }
+    // 现金为王（官方金色）：出售全部角色（不给金币），换取 3 场开战护盾
     case 'cash_is_king': {
       for (const u of st.board) st.inventory.push(...u.equips);
       st.board = [];
       st.strategyData.cash_is_king = 3;
       break;
     }
+    // 降本增效（官方金色）：出售全部角色双倍售价 + 接下来 6 次购买角色免费
+    case 'cheap_reroll': {
+      let gold = 0;
+      for (const u of [...st.board, ...st.bench]) {
+        gold += sellValue(u) * 2;
+        st.inventory.push(...u.equips);
+      }
+      st.board = [];
+      st.bench = [];
+      st.gold += gold;
+      st.freeBuys += 6;
+      break;
+    }
+    // 超发货币（官方金色）：立即清空金币，5 个节点后返还「失去数额 + 70」
     case 'hyperinflation':
+      st.strategyData.hyperinflation_lost = st.gold;
+      st.strategyData.hyperinflation_nodes = 0;
       st.gold = 0;
       break;
-    case 'no_damage':
-      st.strategyData.no_damage = 1;
-      break;
+    // 四费晋升：标记待定，下一次购买 4 费时消费
     case 'promo4':
       st.strategyData.promo4 = 1;
       break;
