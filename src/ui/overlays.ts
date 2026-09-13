@@ -9,14 +9,15 @@ export function renderReward(root: HTMLElement, ctx: AppCtx): void {
   const cards = st.rewards.map((r, i) => {
     const isEquip = r.kind === 'equip';
     const e = isEquip ? equipById(r.equipId!) : null;
+    const icon = !isEquip ? '💰' : e!.tier === 'advanced' ? '◆' : e!.tier === 'emblem' ? '★' : '◇';
     return h('div', {
-      class: `reward-card ${e?.tier === 'advanced' ? 'adv' : ''}`,
+      class: `reward-card ${e?.tier === 'advanced' ? 'adv' : ''} ${e?.tier === 'emblem' ? 'emblem' : ''}`,
       onclick: () => {
         pickReward(st, i);
         ctx.refresh();
       }
     },
-      h('div', { class: 'rc-icon' }, isEquip ? (e!.tier === 'advanced' ? '◆' : '◇') : '💰'),
+      h('div', { class: 'rc-icon' }, icon),
       h('div', { class: 'rc-name', style: e ? { color: e.color } : {} }, rewardLabel(r)),
       h('div', { class: 'rc-desc' }, e ? e.desc : '立刻获得金币'),
       h('div', { class: 'rc-pick' }, '点击领取')

@@ -2,8 +2,10 @@ import type { EquipDef } from '../logic/types';
 
 /**
  * 装备体系（近似还原原版"简易→进阶"合成）：
- * 简易装备 4 种（攻击/防御/生命/速度），任意 2 件在备战阶段合成 1 件进阶装备。
- * recipe = 两个简易 id 排序拼接。
+ * 简易装备 8 种，任意 2 件在备战阶段合成 1 件进阶装备（进阶覆盖常用组合，
+ * 未定义配方的组合无法合成）。recipe = 两个简易 id 排序拼接。
+ * 星徽 10 枚（官方 4.4 红钻→阵营 / 蓝钻→流派的近似）：穿戴者加入对应羁绊（计数 +1）
+ * 并获得基础属性；官方"专属效果"以现有 flag 近似表达（docs §30）。
  */
 export const BASIC_EQUIPS: EquipDef[] = [
   {
@@ -77,7 +79,61 @@ export const ADVANCED_EQUIPS: EquipDef[] = [
   }
 ];
 
-export const ALL_EQUIPS: EquipDef[] = [...BASIC_EQUIPS, ...ADVANCED_EQUIPS];
+/** 星徽（官方 4.4 星徽 22 枚的近似：阵营 4 / 流派 6，各羁绊 1 枚） */
+export const EMBLEM_EQUIPS: EquipDef[] = [
+  {
+    id: 'e_express', name: '列车星徽', tier: 'emblem', color: '#e8b64c', scope: 'unit',
+    desc: '装备者加入「列车同行」羁绊；速度 +10%，终结技能量获取 +15%',
+    flags: { spdPct: 0.10, ultCharge: 0.15 }, emblemTrait: 'express'
+  },
+  {
+    id: 'e_xianzhou', name: '仙舟星徽', tier: 'emblem', color: '#5fd0a8', scope: 'unit',
+    desc: '装备者加入「仙舟罗浮」羁绊；攻击 +20%，治疗效果 +15%',
+    flags: { atkPct: 0.20, healBonus: 0.15 }, emblemTrait: 'xianzhou'
+  },
+  {
+    id: 'e_belobog', name: '贝洛星徽', tier: 'emblem', color: '#6fa8dc', scope: 'unit',
+    desc: '装备者加入「贝洛伯格」羁绊；受伤降低 10%，受击反弹 10% 伤害',
+    flags: { dmgReduce: 0.10, thorns: 0.10 }, emblemTrait: 'belobog'
+  },
+  {
+    id: 'e_stellaron', name: '星核星徽', tier: 'emblem', color: '#c77dff', scope: 'unit',
+    desc: '装备者加入「星核猎手」羁绊；生命上限 +10%，攻击 +10%',
+    flags: { hpPct: 0.10, atkPct: 0.10 }, emblemTrait: 'stellaron'
+  },
+  {
+    id: 'e_aoe', name: '群星辉印', tier: 'emblem', color: '#f2884b', scope: 'unit',
+    desc: '装备者加入「群攻」羁绊；攻击 +12%，生命上限 +12%（近似：每名敌人 +8% 强度）',
+    flags: { atkPct: 0.12, hpPct: 0.12 }, emblemTrait: 'aoe'
+  },
+  {
+    id: 'e_single', name: '破军星徽', tier: 'emblem', color: '#e05d5d', scope: 'unit',
+    desc: '装备者加入「爆发」羁绊；暴击率 +10%，击杀敌人后攻击 +15%',
+    flags: { critRate: 0.10, onKillAtk: 0.15 }, emblemTrait: 'single'
+  },
+  {
+    id: 'e_chase', name: '连弩星徽', tier: 'emblem', color: '#d4a5ff', scope: 'unit',
+    desc: '装备者加入「追击」羁绊；速度 +12%，全队追击概率 +10%（近似：伤害视为追击+行动提前）',
+    flags: { spdPct: 0.12, followupChance: 0.10 }, emblemTrait: 'chase'
+  },
+  {
+    id: 'e_heal', name: '回春星徽', tier: 'emblem', color: '#7dd87d', scope: 'unit',
+    desc: '装备者加入「治疗」羁绊；治疗效果 +30%，每次己方行动后回复 2% 生命上限',
+    flags: { healBonus: 0.30, regenPct: 0.02 }, emblemTrait: 'heal'
+  },
+  {
+    id: 'e_shield', name: '磐盾星徽', tier: 'emblem', color: '#7db8e8', scope: 'unit',
+    desc: '装备者加入「护盾」羁绊；开战全队获得 15% 生命上限的护盾，防御 +15%',
+    flags: { startShieldPct: 0.15, defPct: 0.15 }, emblemTrait: 'shield'
+  },
+  {
+    id: 'e_dot', name: '蚀骨星徽', tier: 'emblem', color: '#b06ee0', scope: 'unit',
+    desc: '装备者加入「持续伤害」羁绊；全队持续伤害 +20%，速度 +8%（近似：攻击附加业火）',
+    flags: { dotAmp: 0.20, spdPct: 0.08 }, emblemTrait: 'dot'
+  }
+];
+
+export const ALL_EQUIPS: EquipDef[] = [...BASIC_EQUIPS, ...ADVANCED_EQUIPS, ...EMBLEM_EQUIPS];
 
 export function equipById(id: string): EquipDef {
   const e = ALL_EQUIPS.find(x => x.id === id);
@@ -107,4 +163,8 @@ export function findCombine(a: string, b: string): EquipDef | null {
 
 export function randomBasicEquip(): string {
   return BASIC_EQUIPS[Math.floor(Math.random() * BASIC_EQUIPS.length)].id;
+}
+
+export function randomEmblem(): string {
+  return EMBLEM_EQUIPS[Math.floor(Math.random() * EMBLEM_EQUIPS.length)].id;
 }

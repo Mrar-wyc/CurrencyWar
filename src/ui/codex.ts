@@ -67,11 +67,11 @@ function codexBody(ctx: AppCtx, tab: Tab): HTMLElement {
   }
   if (tab === 'equip') {
     const grid = h('div', { class: 'codex-grid' });
-    for (const e of [...BASIC_EQUIPS, ...ALL_EQUIPS.filter(x => x.tier === 'advanced')]) {
-      grid.append(h('div', { class: `codex-card equip ${e.tier === 'advanced' ? 'adv' : ''}` },
+    for (const e of [...BASIC_EQUIPS, ...ALL_EQUIPS.filter(x => x.tier === 'advanced'), ...ALL_EQUIPS.filter(x => x.tier === 'emblem')]) {
+      grid.append(h('div', { class: `codex-card equip ${e.tier === 'advanced' ? 'adv' : ''} ${e.tier === 'emblem' ? 'emblem' : ''}` },
         h('div', { class: 'cc-head' },
-          h('span', { class: 'cc-name', style: { color: e.color } }, `${e.tier === 'advanced' ? '◆' : '◇'} ${e.name}`),
-          h('span', { class: 'cc-cost' }, e.tier === 'advanced' ? '进阶' : '简易')
+          h('span', { class: 'cc-name', style: { color: e.color } }, `${e.tier === 'advanced' ? '◆' : e.tier === 'emblem' ? '★' : '◇'} ${e.name}`),
+          h('span', { class: 'cc-cost' }, e.tier === 'advanced' ? '进阶' : e.tier === 'emblem' ? '星徽' : '简易')
         ),
         h('div', { class: 'cc-skill' }, e.desc),
         e.recipe ? h('div', { class: 'cc-tier' }, `合成：${e.recipe.map(r => ALL_EQUIPS.find(x => x.id === r)!.name).join(' + ')}`) : null

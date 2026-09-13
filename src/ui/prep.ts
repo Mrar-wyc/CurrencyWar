@@ -192,7 +192,7 @@ function inventoryPanel(ctx: AppCtx): HTMLElement {
     const e = equipById(id);
     const selected = s?.kind === 'equip' && s.id === id && s.idx === undefined;
     grid.append(h('div', {
-      class: `inv-item ${e.tier === 'advanced' ? 'adv' : 'basic'} ${selected ? 'selected' : ''}`,
+      class: `inv-item ${e.tier === 'advanced' ? 'adv' : e.tier === 'emblem' ? 'emblem' : 'basic'} ${selected ? 'selected' : ''}`,
       style: { borderColor: e.color },
       title: `${e.name}：${e.desc}`,
       onclick: (ev: Event) => {
@@ -211,12 +211,12 @@ function inventoryPanel(ctx: AppCtx): HTMLElement {
         ctx.setSel({ kind: 'equip', id, idx });
         ctx.refresh();
       }
-    }, e.tier === 'advanced' ? '◆' : '◇'));
+    }, e.tier === 'advanced' ? '◆' : e.tier === 'emblem' ? '★' : '◇'));
   });
   panel.append(grid);
   panel.append(h('div', { class: 'hint' }, s?.kind === 'equip'
     ? '已选中装备：点击角色穿戴；再点一件简易装备可合成'
-    : '点击装备选中 → 点击角色穿戴；两件简易装备可合成进阶'));
+    : '点击装备选中 → 点击角色穿戴；两件简易装备可合成进阶；★ 星徽为穿戴者加入羁绊'));
   return panel;
 }
 
@@ -233,7 +233,10 @@ function detailPanel(ctx: AppCtx): HTMLElement {
       h('div', { class: 'panel-title' }, '装备详情'),
       h('div', { class: 'equip-detail' },
         h('div', { class: 'ed-name', style: { color: e.color } }, e.name),
-        h('div', { class: 'ed-tier' }, e.tier === 'advanced' ? '进阶装备' : '简易装备', e.scope === 'team' ? ' · 全队生效' : ' · 穿戴者生效'),
+        h('div', { class: 'ed-tier' },
+          e.tier === 'advanced' ? '进阶装备' : e.tier === 'emblem' ? '星徽装备' : '简易装备',
+          e.scope === 'team' ? ' · 全队生效' : ' · 穿戴者生效',
+          e.emblemTrait ? ` · 加入「${traitById(e.emblemTrait).name}」羁绊` : ''),
         h('div', { class: 'ed-desc' }, e.desc)
       ),
       h('div', { class: 'hint' }, '点击任意角色穿戴；点击另一件简易装备尝试合成')

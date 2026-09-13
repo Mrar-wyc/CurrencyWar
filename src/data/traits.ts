@@ -33,7 +33,8 @@ export const FACTION_TRAITS: TraitDef[] = [
     id: 'stellaron', name: '星核猎手', kind: 'faction', color: '#c77dff', icon: '☄️',
     desc: '独行于星海之间的猎手。',
     tiers: [
-      { count: 1, desc: '持续伤害 +25%，全队攻击 +8%', flags: { dotAmp: 0.25, atkPct: 0.08 } }
+      { count: 1, desc: '持续伤害 +25%，全队攻击 +8%', flags: { dotAmp: 0.25, atkPct: 0.08 } },
+      { count: 3, desc: '持续伤害 +40%，全队攻击 +18%', flags: { dotAmp: 0.40, atkPct: 0.18 } }
     ]
   }
 ];
@@ -45,7 +46,8 @@ export const SCHOOL_TRAITS: TraitDef[] = [
     desc: '以压倒性的范围火力清扫战场。',
     tiers: [
       { count: 2, desc: '全队攻击 +8%', flags: { atkPct: 0.08 } },
-      { count: 4, desc: '全队攻击 +18%', flags: { atkPct: 0.18 } }
+      { count: 4, desc: '全队攻击 +18%', flags: { atkPct: 0.18 } },
+      { count: 6, desc: '全队攻击 +28%', flags: { atkPct: 0.28 } }
     ]
   },
   {
@@ -53,7 +55,8 @@ export const SCHOOL_TRAITS: TraitDef[] = [
     desc: '精准狙杀最有价值的目标。',
     tiers: [
       { count: 2, desc: '全队暴击率 +6%', flags: { critRate: 0.06 } },
-      { count: 4, desc: '全队暴击率 +14%', flags: { critRate: 0.14 } }
+      { count: 4, desc: '全队暴击率 +14%', flags: { critRate: 0.14 } },
+      { count: 6, desc: '全队暴击率 +20%，攻击 +8%', flags: { critRate: 0.20, atkPct: 0.08 } }
     ]
   },
   {
@@ -61,21 +64,24 @@ export const SCHOOL_TRAITS: TraitDef[] = [
     desc: '抓住破绽，连续追击。',
     tiers: [
       { count: 2, desc: '普攻后 25% 概率追加一次普攻', flags: { followupChance: 0.25 } },
-      { count: 3, desc: '普攻后 45% 概率追加一次普攻', flags: { followupChance: 0.45 } }
+      { count: 3, desc: '普攻后 45% 概率追加一次普攻', flags: { followupChance: 0.45 } },
+      { count: 5, desc: '普攻后 60% 概率追加一次普攻', flags: { followupChance: 0.60 } }
     ]
   },
   {
     id: 'heal', name: '治疗', kind: 'school', color: '#7dd87d', icon: '💚',
     desc: '丰饶之力庇护众人。',
     tiers: [
-      { count: 2, desc: '每次己方行动后全体回复 2% 生命上限', flags: { regenPct: 0.02 } }
+      { count: 2, desc: '每次己方行动后全体回复 2% 生命上限', flags: { regenPct: 0.02 } },
+      { count: 4, desc: '每次己方行动后全体回复 4% 生命上限', flags: { regenPct: 0.04 } }
     ]
   },
   {
     id: 'shield', name: '护盾', kind: 'school', color: '#7db8e8', icon: '🛡️',
     desc: '存护的壁垒坚不可摧。',
     tiers: [
-      { count: 1, desc: '开战时全队获得 8% 生命上限的护盾', flags: { startShieldPct: 0.08 } }
+      { count: 1, desc: '开战时全队获得 8% 生命上限的护盾', flags: { startShieldPct: 0.08 } },
+      { count: 3, desc: '开战时全队获得 16% 生命上限的护盾', flags: { startShieldPct: 0.16 } }
     ]
   },
   {
@@ -83,7 +89,8 @@ export const SCHOOL_TRAITS: TraitDef[] = [
     desc: '灼烧与触电在敌阵中蔓延。',
     tiers: [
       { count: 2, desc: '持续伤害 +30%', flags: { dotAmp: 0.30 } },
-      { count: 3, desc: '持续伤害 +60%', flags: { dotAmp: 0.60 } }
+      { count: 3, desc: '持续伤害 +60%', flags: { dotAmp: 0.60 } },
+      { count: 5, desc: '持续伤害 +90%', flags: { dotAmp: 0.90 } }
     ]
   }
 ];

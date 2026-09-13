@@ -167,7 +167,7 @@ export interface TraitDef {
 export interface EquipDef {
   id: string;
   name: string;
-  tier: 'basic' | 'advanced';
+  tier: 'basic' | 'advanced' | 'emblem';
   color: string;
   desc: string;
   /** unit: 仅穿戴者生效；team: 全队生效 */
@@ -175,6 +175,8 @@ export interface EquipDef {
   flags: Partial<UnitFlags> & Partial<TeamFlags>;
   /** 由哪些简易装备合成（advanced 用，排序后的 id 拼接） */
   recipe?: [string, string];
+  /** 星徽专属：装备者加入该羁绊（计数 +1，仅穿戴中生效） */
+  emblemTrait?: string;
 }
 
 // ================= 战斗单位 =================

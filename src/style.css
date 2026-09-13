@@ -294,6 +294,7 @@ button:active { transform: scale(0.95); }
   color: var(--violet-deep);
 }
 .inv-item.adv { box-shadow: 0 0 10px rgba(245, 184, 61, 0.7); border-color: var(--gold-deep); color: var(--gold-deep); }
+.inv-item.emblem { box-shadow: 0 0 12px rgba(199, 125, 255, 0.85); border-style: double; border-width: 3px; }
 .inv-item.selected { outline: 3px solid var(--gold); }
 
 /* 商店 */
@@ -499,6 +500,7 @@ button:active { transform: scale(0.95); }
 }
 .reward-card:hover, .reward-card:active { transform: translateY(-5px); box-shadow: 0 14px 34px rgba(43, 47, 99, 0.4); }
 .reward-card.adv { border-color: var(--gold); box-shadow: 0 8px 30px rgba(245, 184, 61, 0.5); }
+.reward-card.emblem { border-color: #c77dff; box-shadow: 0 8px 30px rgba(199, 125, 255, 0.55); }
 .rc-icon { font-size: 46px; }
 .rc-name { font-size: 22px; font-weight: 900; margin: 10px 0 8px; letter-spacing: 1px; color: var(--violet-ink); }
 .rc-desc { font-size: 15.5px; color: var(--ink-soft); line-height: 1.5; min-height: 44px; }
@@ -588,6 +590,7 @@ button:active { transform: scale(0.95); }
 .cc-tier b { color: var(--gold-deep); }
 .cc-flavor { font-size: 13.5px; color: #8a90b5; margin-top: 6px; font-style: italic; }
 .codex-card.equip.adv, .codex-card.trait { background: linear-gradient(165deg, #fffaf0 0%, #fff3d6 100%); }
+.codex-card.equip.emblem { border-color: #c77dff; box-shadow: 0 0 14px rgba(199, 125, 255, 0.45); background: linear-gradient(165deg, #fdf7ff 0%, #f3e6ff 100%); }
 
 .help-body { flex: 1; overflow-y: auto; padding: 18px 36px; }
 .help-sec { margin-bottom: 20px; }

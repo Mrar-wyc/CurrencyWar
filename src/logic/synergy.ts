@@ -1,5 +1,6 @@
 import { FACTION_TRAITS, SCHOOL_TRAITS, traitById } from '../data/traits';
 import { CHARACTERS, charById } from '../data/characters';
+import { equipById } from '../data/equipment';
 import { EMPTY_TEAM_FLAGS } from './types';
 import type { MatchState, OwnedUnit, TeamFlags, TraitDef, TraitTier } from './types';
 
@@ -11,13 +12,19 @@ export interface ActiveTrait {
   nextAt: number | null;
 }
 
-/** 统计棋盘（前台+后台）羁绊人数 */
+/** 统计棋盘（前台+后台）羁绊人数；穿戴中的星徽为其羁绊 +1（官方"装备者加入该羁绊"） */
 export function countTraits(units: OwnedUnit[]): Map<string, number> {
   const counts = new Map<string, number>();
   for (const u of units) {
     const c = charById(u.charId);
     counts.set(c.faction, (counts.get(c.faction) ?? 0) + 1);
     for (const t of c.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
+    for (const eqId of u.equips) {
+      const eq = equipById(eqId);
+      if (eq.tier === 'emblem' && eq.emblemTrait) {
+        counts.set(eq.emblemTrait, (counts.get(eq.emblemTrait) ?? 0) + 1);
+      }
+    }
   }
   return counts;
 }

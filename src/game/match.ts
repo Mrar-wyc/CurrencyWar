@@ -1,5 +1,5 @@
 import { charById, CHARACTERS } from '../data/characters';
-import { ADVANCED_EQUIPS, equipById, findCombine, randomBasicEquip } from '../data/equipment';
+import { ADVANCED_EQUIPS, equipById, findCombine, randomBasicEquip, randomEmblem } from '../data/equipment';
 import { MATCH_CONFIG as CFG, PLANES } from '../data/stages';
 import { createPool, returnOffers, rollShop } from '../logic/shop';
 import { buildBattleInput } from '../logic/battle-build';
@@ -276,12 +276,13 @@ function rollRewards(): PendingReward[] {
   const out: PendingReward[] = [];
   for (let i = 0; i < 3; i++) {
     const r = Math.random();
-    if (r < 0.55) out.push({ kind: 'equip', equipId: randomBasicEquip() });
-    else if (r < 0.8) out.push({ kind: 'gold', gold: 8 });
-    else {
+    if (r < 0.50) out.push({ kind: 'equip', equipId: randomBasicEquip() });
+    else if (r < 0.72) out.push({ kind: 'gold', gold: 8 });
+    else if (r < 0.86) {
       const adv = ADVANCED_EQUIPS[Math.floor(Math.random() * ADVANCED_EQUIPS.length)];
       out.push({ kind: 'equip', equipId: adv.id });
-    }
+    } else if (r < 0.93) out.push({ kind: 'equip', equipId: randomEmblem() });
+    else out.push({ kind: 'gold', gold: 15 });
   }
   return out;
 }
@@ -478,5 +479,6 @@ export function ackSupply(st: MatchState): void {
 export function rewardLabel(r: PendingReward): string {
   if (r.kind === 'gold') return `金币袋 +${r.gold}`;
   const e = equipById(r.equipId!);
-  return `${e.name}（${e.tier === 'basic' ? '简易' : '进阶'}）`;
+  const tierName = e.tier === 'basic' ? '简易' : e.tier === 'advanced' ? '进阶' : '星徽';
+  return `${e.name}（${tierName}）`;
 }
