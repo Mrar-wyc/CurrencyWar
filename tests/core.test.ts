@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { charById, CHARACTERS, POOL_COPIES } from '../src/data/characters';
 import { enemyById } from '../src/data/enemies';
-import { equipById, findCombine } from '../src/data/equipment';
-import { MATCH_CONFIG as CFG, SHOP_ODDS } from '../src/data/stages';
+import { equipById, findCombine, ALL_EQUIPS, BASIC_EQUIPS, ADVANCED_EQUIPS, EMBLEM_EQUIPS } from '../src/data/equipment';
+import { MATCH_CONFIG as CFG, PLANES, SHOP_ODDS } from '../src/data/stages';
 import { FACTION_TRAITS, SCHOOL_TRAITS } from '../src/data/traits';
 import { createPool } from '../src/logic/shop';
 import { simulateBattle } from '../src/battle/engine';
 import { buildAllyUnit, buildBackerUnit, buildBattleInput } from '../src/logic/battle-build';
 import {
-  advanceNode, buyShop, buyExp, combineEquips, equipItemTo, newMatch, pickStrategy,
+  advanceNode, backCapacity, buyShop, buyExp, combineEquips, equipItemTo, newMatch, pickStrategy,
   placeUnit, recallUnit, reroll, resolveBattle, sellUnit, unequipItem, sellValue
 } from '../src/game/match';
-import { computeTeamFlags } from '../src/logic/synergy';
+import { activeTraits, computeTeamFlags, traitById } from '../src/logic/synergy';
 import { rerollCostOf, rollStrategyOffers, strategyEnemyMult, strategyTeamFlags, strategyUnitMods } from '../src/logic/strategy';
 import { strategyById } from '../src/data/strategies';
 import { EMPTY_TEAM_FLAGS } from '../src/logic/types';
@@ -702,5 +702,104 @@ describe('角色数据完整性（路线④）', () => {
     const pool = createPool();
     expect(Object.keys(pool).length).toBe(CHARACTERS.length);
     for (const c of CHARACTERS) expect(pool[c.id]).toBe(POOL_COPIES[c.cost]);
+  });
+});
+
+describe('星徽与装备池', () => {
+  it('装备池完整性：id 唯一、简易 8/星徽 10、配方组合唯一且引用合法', () => {
+    const ids = ALL_EQUIPS.map(e => e.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(BASIC_EQUIPS).toHaveLength(8);
+    expect(EMBLEM_EQUIPS).toHaveLength(10);
+    for (const e of EMBLEM_EQUIPS) {
+      expect(e.emblemTrait).toBeTruthy();
+      expect(() => traitById(e.emblemTrait!)).not.toThrow();
+      expect(Object.keys(e.flags).length).toBeGreaterThan(0);
+    }
+    const combos = new Set(ADVANCED_EQUIPS.map(a => a.recipe!.slice().sort().join('+')));
+    expect(combos.size).toBe(ADVANCED_EQUIPS.length);
+    for (const a of ADVANCED_EQUIPS) {
+      for (const r of a.recipe!) expect(BASIC_EQUIPS.some(b => b.id === r)).toBe(true);
+    }
+  });
+
+  it('星徽穿戴者加入羁绊：计数 +1 并激活档位', () => {
+    const st = newMatch();
+    const u = mkUnit('march7th');
+    st.bench = [u];
+    st.inventory = ['e_express'];
+    equipItemTo(st, 'e_express', u.uid);
+    expect(activeTraits(st.board)).toHaveLength(0);
+    u.slot = { row: 'front', index: 0 };
+    st.board = [u];
+    const express = activeTraits(st.board).find(x => x.trait.id === 'express');
+    expect(express?.count).toBe(2);
+    expect(express?.tier).not.toBeNull();
+    expect(computeTeamFlags(st.board).hpPct).toBeCloseTo(0.08);
+  });
+
+  it('背包中的星徽不计入羁绊（仅穿戴中生效）', () => {
+    const st = newMatch();
+    const u = mkUnit('march7th');
+    u.slot = { row: 'front', index: 0 };
+    st.board = [u];
+    st.inventory = ['e_express'];
+    expect(activeTraits(st.board).find(x => x.trait.id === 'express')?.count).toBe(1);
+  });
+
+  it('火力风暴潮：n_knife×2 合成、onHitAtk 生效并叠层', () => {
+    expect(findCombine('n_knife', 'n_knife')?.id).toBe('a_storm');
+    const own = mkUnit('march7th', 1, { row: 'front', index: 0 });
+    own.equips = ['a_storm'];
+    const cu = buildAllyUnit(own, 0, { ...EMPTY_TEAM_FLAGS });
+    expect(cu.unitFlags.onHitAtk).toBeCloseTo(0.08);
+    simulateBattle({
+      allies: [cu],
+      backers: [],
+      enemies: [mkEnemy('boss_p3', 0.2)],
+      spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 4,
+      teamFlags: { ...EMPTY_TEAM_FLAGS }
+    });
+    expect(cu.attackStacks).toBeGreaterThan(0);
+  });
+});
+
+describe('财富宝钻', () => {
+  it('首个首领战胜利获得宝钻，后台位扩到 5', () => {
+    const st = newMatch();
+    st.plane = 0;
+    st.node = 5;
+    expect(PLANES[0].nodes[5].kind).toBe('boss');
+    st.gold = 0;
+    resolveBattle(st, true, 0, 10, 0, 0);
+    expect(st.wealthGem).toBe(true);
+    expect(backCapacity(st)).toBe(5);
+    const u = mkUnit('march7th');
+    st.bench = [u];
+    expect(placeUnit(st, u.uid, 'back', 4)).toBeNull();
+  });
+
+  it('普通战斗胜利不发放宝钻', () => {
+    const st = newMatch();
+    st.plane = 0;
+    st.node = 0;
+    resolveBattle(st, true, 0, 10, 0, 0);
+    expect(st.wealthGem).toBe(false);
+    expect(backCapacity(st)).toBe(4);
+  });
+
+  it('每 3 个备战阶段 +1 金', () => {
+    const st = newMatch();
+    st.wealthGem = true;
+    st.gemGoldTick = 0;
+    const g0 = st.gold;
+    let preps = 0;
+    let guard = 0;
+    while (preps < 3 && guard++ < 30) {
+      advanceNode(st);
+      if (st.phase === 'prep') preps++;
+    }
+    expect(preps).toBe(3);
+    expect(st.gold - g0).toBe(1);
   });
 });
