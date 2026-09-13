@@ -1,5 +1,6 @@
 import { RANKS } from '../data/stages';
 import { h } from './dom';
+import { diamondSvg } from './icons';
 import type { AppCtx } from './ctx';
 
 export function renderMenu(root: HTMLElement, ctx: AppCtx): void {
@@ -10,6 +11,7 @@ export function renderMenu(root: HTMLElement, ctx: AppCtx): void {
       h('div', { class: 'menu-bg' }),
       h('div', { class: 'menu-inner' },
         h('div', { class: 'menu-title' },
+          h('div', { class: 'mt-diamond' }, diamondSvg(120)),
           h('div', { class: 'mt-main' }, '货币战争'),
           h('div', { class: 'mt-sub' }, '零和博弈 · 单机自走棋'),
           h('div', { class: 'mt-rank' }, `当前职级：${RANKS[save.rank]}`)

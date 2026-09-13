@@ -2,6 +2,7 @@ import { RANKS } from '../data/stages';
 import { equipById } from '../data/equipment';
 import { ackSupply, pickReward, rewardLabel } from '../game/match';
 import { h } from './dom';
+import { coinSvg, equipMark } from './icons';
 import type { AppCtx, FinishSummary } from './ctx';
 
 export function renderReward(root: HTMLElement, ctx: AppCtx): void {
@@ -9,7 +10,6 @@ export function renderReward(root: HTMLElement, ctx: AppCtx): void {
   const cards = st.rewards.map((r, i) => {
     const isEquip = r.kind === 'equip';
     const e = isEquip ? equipById(r.equipId!) : null;
-    const icon = !isEquip ? '💰' : e!.tier === 'advanced' ? '◆' : e!.tier === 'emblem' ? '★' : '◇';
     return h('div', {
       class: `reward-card ${e?.tier === 'advanced' ? 'adv' : ''} ${e?.tier === 'emblem' ? 'emblem' : ''}`,
       onclick: () => {
@@ -17,7 +17,8 @@ export function renderReward(root: HTMLElement, ctx: AppCtx): void {
         ctx.refresh();
       }
     },
-      h('div', { class: 'rc-icon' }, icon),
+      h('div', { class: 'rc-icon' },
+        e ? equipMark(e.tier, e.color, 56) : coinSvg(56)),
       h('div', { class: 'rc-name', style: e ? { color: e.color } : {} }, rewardLabel(r)),
       h('div', { class: 'rc-desc' }, e ? e.desc : '立刻获得金币'),
       h('div', { class: 'rc-pick' }, '点击领取')
@@ -42,7 +43,8 @@ export function renderSupply(root: HTMLElement, ctx: AppCtx): void {
         ...(st.supplyItems ?? []).map(id => {
           const e = equipById(id);
           return h('div', { class: 'supply-item' },
-            h('b', { style: { color: e.color } }, `◇ ${e.name}`),
+            equipMark(e.tier, e.color, 20),
+            h('b', { style: { color: e.color } }, e.name),
             h('span', {}, e.desc)
           );
         })

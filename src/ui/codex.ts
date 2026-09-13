@@ -3,6 +3,7 @@ import { ALL_EQUIPS, BASIC_EQUIPS } from '../data/equipment';
 import { ENEMIES } from '../data/enemies';
 import { ALL_TRAITS } from '../data/traits';
 import { COST_COLORS, h } from './dom';
+import { avatar, enemyMark, equipMark, hexTrait } from './icons';
 import type { AppCtx } from './ctx';
 
 type Tab = 'char' | 'trait' | 'equip' | 'enemy';
@@ -37,6 +38,7 @@ function codexBody(ctx: AppCtx, tab: Tab): HTMLElement {
     for (const c of CHARACTERS) {
       grid.append(h('div', { class: `codex-card char cost-${c.cost}` },
         h('div', { class: 'cc-head' },
+          avatar(c.color, c.cost, c.name.slice(0, 1), 30),
           h('span', { class: 'cc-name', style: { color: COST_COLORS[c.cost] } }, c.name),
           h('span', { class: 'cc-cost' }, `${c.cost}费`)
         ),
@@ -56,7 +58,8 @@ function codexBody(ctx: AppCtx, tab: Tab): HTMLElement {
     for (const t of ALL_TRAITS) {
       grid.append(h('div', { class: 'codex-card trait' },
         h('div', { class: 'cc-head' },
-          h('span', { class: 'cc-name', style: { color: t.color } }, `${t.icon} ${t.name}`),
+          hexTrait(t.icon, true, 30),
+          h('span', { class: 'cc-name' }, t.name),
           h('span', { class: 'cc-cost' }, t.kind === 'faction' ? '阵营' : '流派')
         ),
         h('div', { class: 'cc-sub' }, t.desc),
@@ -70,7 +73,8 @@ function codexBody(ctx: AppCtx, tab: Tab): HTMLElement {
     for (const e of [...BASIC_EQUIPS, ...ALL_EQUIPS.filter(x => x.tier === 'advanced'), ...ALL_EQUIPS.filter(x => x.tier === 'emblem')]) {
       grid.append(h('div', { class: `codex-card equip ${e.tier === 'advanced' ? 'adv' : ''} ${e.tier === 'emblem' ? 'emblem' : ''}` },
         h('div', { class: 'cc-head' },
-          h('span', { class: 'cc-name', style: { color: e.color } }, `${e.tier === 'advanced' ? '◆' : e.tier === 'emblem' ? '★' : '◇'} ${e.name}`),
+          equipMark(e.tier, e.color, 26),
+          h('span', { class: 'cc-name', style: { color: e.color } }, e.name),
           h('span', { class: 'cc-cost' }, e.tier === 'advanced' ? '进阶' : e.tier === 'emblem' ? '星徽' : '简易')
         ),
         h('div', { class: 'cc-skill' }, e.desc),
@@ -83,7 +87,8 @@ function codexBody(ctx: AppCtx, tab: Tab): HTMLElement {
   for (const e of ENEMIES) {
     grid.append(h('div', { class: `codex-card enemy ${e.boss ? 'boss' : ''}` },
       h('div', { class: 'cc-head' },
-        h('span', { class: 'cc-name', style: { color: e.color } }, `${e.boss ? '👑 ' : ''}${e.name}`),
+        enemyMark(!!e.boss, e.color, 24),
+        h('span', { class: 'cc-name', style: { color: e.color } }, e.name),
         h('span', { class: 'cc-cost' }, e.boss ? '首领' : '小怪')
       ),
       h('div', { class: 'cc-stats' }, `HP ${e.hp} · 攻 ${e.atk} · 防 ${e.def} · 速 ${e.spd}`),

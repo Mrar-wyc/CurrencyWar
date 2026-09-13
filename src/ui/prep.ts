@@ -90,7 +90,7 @@ function shopRow(ctx: AppCtx): HTMLElement {
         ctx.refresh();
       }
     },
-      h('div', { class: 'sc-avatar' }, avatar(c.color, c.cost, c.name.slice(0, 1), 46)),
+      h('div', { class: 'sc-avatar' }, avatar(c.color, c.cost, c.name.slice(0, 1), 38)),
       h('div', { class: 'sc-body' },
         h('div', { class: 'sc-head' },
           h('span', { class: 'sc-name' }, c.name),
@@ -226,10 +226,13 @@ function inventoryPanel(ctx: AppCtx): HTMLElement {
     }, e.tier === 'advanced' ? '◆' : e.tier === 'emblem' ? '★' : '◇'));
   });
   panel.append(grid);
-  // 触屏无 tooltip：选中装备信息常显一行
-  panel.append(h('div', { class: 'inv-name' }, s?.kind === 'equip'
+  // 触屏无 tooltip：选中装备信息常显一行（全文见 title 与详情面板）
+  panel.append(h('div', {
+    class: 'inv-name',
+    title: '点装备选中 → 点击角色穿戴；两件简易装备可合成进阶'
+  }, s?.kind === 'equip'
     ? `${equipById(s.id).name}：${equipById(s.id).desc}`
-    : '点装备选中→点角色穿戴；两件简易可合成'));
+    : '点装备选中 → 点角色穿戴'));
   return panel;
 }
 

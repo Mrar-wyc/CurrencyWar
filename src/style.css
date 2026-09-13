@@ -148,6 +148,15 @@ button.disabled { opacity: 0.45; }
   gap: 24px;
 }
 .menu-title { text-align: center; }
+.mt-diamond {
+  display: flex; justify-content: center; margin-bottom: 2px;
+  filter: drop-shadow(0 0 18px rgba(143, 216, 255, 0.55)) drop-shadow(0 6px 16px rgba(20, 18, 52, 0.5));
+  animation: diamondFloat 3.2s ease-in-out infinite;
+}
+@keyframes diamondFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
 .mt-main {
   font-size: 68px; font-weight: 900; letter-spacing: 16px; text-indent: 16px;
   background: linear-gradient(180deg, #ffffff 15%, #ffe9c2 60%, #ffd98a 100%);
@@ -372,12 +381,12 @@ button.disabled { opacity: 0.45; }
   border-radius: 13px;
   border: 2px solid var(--line-soft);
   background: var(--card-deep);
-  padding: 6px 8px;
+  padding: 5px 7px;
   cursor: pointer;
   transition: transform .08s, box-shadow .15s;
   box-shadow: 0 4px 14px rgba(20, 18, 52, 0.35);
   position: relative;
-  display: flex; gap: 6px; align-items: stretch;
+  display: flex; gap: 5px; align-items: stretch;
 }
 .sc-avatar { flex: none; display: flex; align-items: center; }
 .sc-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -455,12 +464,12 @@ button.disabled { opacity: 0.45; }
 }
 .unit-card.selected { outline: 3px solid var(--gold); outline-offset: -1px; }
 .uc-name-row { width: 100%; display: flex; justify-content: center; align-items: baseline; gap: 3px; min-width: 0; }
-.uc-name { font-size: 15px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; max-width: calc(100% - 34px); }
+.uc-name { font-size: 15px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; flex: 0 1 auto; min-width: 0; }
 .uc-star { font-size: 13.5px; flex: none; }
 .uc-tags { font-size: 13.5px; color: var(--txt-dim); width: 100%; text-align: center; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 .unit-card.in-bench .uc-tags { display: none; }
-.unit-card.in-bench .uc-name { font-size: 13.5px; max-width: calc(100% - 26px); }
+.unit-card.in-bench .uc-name { font-size: 13.5px; }
 .uc-equips { display: flex; gap: 4px; margin-top: auto; min-height: 9px; }
 .eq-dot { width: 9px; height: 9px; transform: rotate(45deg); border-radius: 2px; background: var(--violet-hi); }
 
@@ -603,7 +612,7 @@ button.disabled { opacity: 0.45; }
   border-radius: 13px;
   padding: 15px 28px;
   font-size: 18.5px;
-  display: flex; gap: 14px; align-items: baseline;
+  display: flex; gap: 12px; align-items: center;
   box-shadow: 0 4px 14px rgba(20, 18, 52, 0.35);
   color: var(--txt);
   font-weight: 700;
@@ -657,7 +666,7 @@ button.disabled { opacity: 0.45; }
   border-radius: 13px;
   background: var(--card-deep);
   padding: 13px;
-  font-size: 13.5px;
+  font-size: 14px;
   box-shadow: 0 3px 12px rgba(20, 18, 52, 0.3);
 }
 .codex-card.cost-1 { border-color: var(--cost-1); }
@@ -666,18 +675,19 @@ button.disabled { opacity: 0.45; }
 .codex-card.cost-4 { border-color: var(--cost-4); }
 .codex-card.cost-5 { border-color: var(--cost-5); }
 .codex-card.boss { border-color: #c77dff; }
-.cc-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
-.cc-name { font-size: 19px; font-weight: 900; letter-spacing: 0.5px; color: #fff; }
+.cc-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 4px; }
+.cc-head > svg { flex: none; }
+.cc-name { font-size: 19px; font-weight: 900; letter-spacing: 0.5px; color: #fff; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cc-cost { font-size: 13.5px; color: var(--txt-dim); font-weight: 700; }
 .cc-cost::before { content: '◆ '; font-size: 11px; }
 .cc-sub { font-size: 14px; color: var(--txt-dim); margin-bottom: 5px; font-weight: 600; }
-.cc-stats { font-size: 14px; color: var(--txt-dim); margin-bottom: 6px; font-weight: 600; }
-.cc-skill { font-size: 14px; color: var(--txt-dim); line-height: 1.5; margin-bottom: 5px; }
+.cc-stats { font-size: 14.5px; color: var(--txt-dim); margin-bottom: 6px; font-weight: 600; }
+.cc-skill { font-size: 14.5px; color: var(--txt-dim); line-height: 1.5; margin-bottom: 5px; }
 .cc-skill b { color: var(--gold-text); }
 .cc-passive { font-size: 14px; color: #d9a8ff; }
-.cc-tier { font-size: 14px; color: var(--txt-dim); line-height: 1.55; }
+.cc-tier { font-size: 14.5px; color: var(--txt-dim); line-height: 1.55; }
 .cc-tier b { color: var(--gold-text); }
-.cc-flavor { font-size: 13.5px; color: rgba(233, 235, 255, 0.45); margin-top: 6px; font-style: italic; }
+.cc-flavor { font-size: 14px; color: rgba(233, 235, 255, 0.45); margin-top: 6px; font-style: italic; }
 .codex-card.equip.adv, .codex-card.trait { border-color: rgba(255, 217, 138, 0.55); }
 .codex-card.equip.emblem { border-color: #c77dff; box-shadow: 0 0 14px rgba(199, 125, 255, 0.4); }
 

@@ -162,3 +162,32 @@ export function enemyMark(boss: boolean, color: string, size = 16): SVGSVGElemen
     `<path d="M4 18h16l-1.2-9-4.3 3.4L12 5l-2.5 7.4L5.2 9z" fill="#ffd166" stroke="#b57d12" stroke-width="1.2" stroke-linejoin="round"/>`,
     size);
 }
+
+/** 装备标记（简易=空心菱形 / 进阶=实心切面菱形 / 星徽=星形） */
+export function equipMark(tier: 'basic' | 'advanced' | 'emblem', color: string, size = 40): SVGSVGElement {
+  const id = `eq${++uid}`;
+  if (tier === 'emblem') {
+    return svg('0 0 40 40',
+      `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#e2c8ff"/><stop offset="1" stop-color="#a855f7"/>
+      </linearGradient></defs>
+      <path d="M20 3l4.9 10.4L37 15l-9 8.6 2.3 12.4L20 30l-10.3 6 2.3-12.4-9-8.6 12.1-1.6z"
+        fill="url(#${id})" stroke="rgba(255,255,255,0.85)" stroke-width="1.6" stroke-linejoin="round"/>`,
+      size);
+  }
+  if (tier === 'advanced') {
+    return svg('0 0 40 40',
+      `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/><stop offset="0.5" stop-color="${color}"/>
+        <stop offset="1" stop-color="${shade(color, -30)}"/>
+      </linearGradient></defs>
+      <g stroke="rgba(255,255,255,0.8)" stroke-width="1.6" stroke-linejoin="round">
+        <polygon points="20,4 36,20 20,36 4,20" fill="url(#${id})"/>
+        <polyline points="4,20 14,20 20,4 26,20 36,20" fill="none"/>
+      </g>`,
+      size);
+  }
+  return svg('0 0 40 40',
+    `<polygon points="20,5 35,20 20,35 5,20" fill="rgba(30,28,74,0.4)" stroke="${color}" stroke-width="2.4" stroke-linejoin="round"/>`,
+    size);
+}
