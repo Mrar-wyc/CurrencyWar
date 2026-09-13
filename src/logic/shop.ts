@@ -14,7 +14,7 @@ function randInt(n: number): number {
 }
 
 function rollCost(level: number): number {
-  const odds = SHOP_ODDS[Math.min(level, 9)];
+  const odds = SHOP_ODDS[Math.min(level, 10)];
   const total = odds.reduce((a, b) => a + b, 0);
   let r = Math.random() * total;
   for (let i = 0; i < odds.length; i++) {

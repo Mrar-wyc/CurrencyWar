@@ -110,9 +110,9 @@ export const MATCH_CONFIG = {
   startGold: 8,
   startLevel: 3,
   startHp: 100,
-  maxLevel: 9,
+  maxLevel: 10,
   frontSlots: 6,
-  backSlots: 3,
+  backSlots: 4,
   benchSlots: 9,
   shopSize: 5,
   rerollCost: 2,
@@ -131,11 +131,8 @@ export const MATCH_CONFIG = {
     return 0;
   },
   lossCompensation: 2,
-  /** 升到下一级所需经验（索引 = 当前等级，从 3 级开始） */
-  expToNext: { 3: 2, 4: 6, 5: 10, 6: 20, 7: 36, 8: 48 } as Record<number, number>,
-  /** 后台角色给全队的赋能 */
-  backUnitAtkPct: 0.04,
-  backUnitHpPct: 0.04,
+  /** 升到下一级所需经验（索引 = 当前等级，从 3 级开始；9→10 官方数值未公开，按曲线外推） */
+  expToNext: { 3: 2, 4: 6, 5: 10, 6: 20, 7: 36, 8: 48, 9: 60 } as Record<number, number>,
   /** 失败扣血 */
   loseHpNormal: 15,
   loseHpBoss: 30,
@@ -147,17 +144,18 @@ export const MATCH_CONFIG = {
   }
 };
 
-/** 各等级商店各费用出现概率（还原原版公开概率表） */
+/** 各等级商店各费用出现概率（官方完整表，docs §3；Lv1-3 全部 100% 出 1 费） */
 export const SHOP_ODDS: Record<number, number[]> = {
   1: [100, 0, 0, 0, 0],
-  2: [80, 20, 0, 0, 0],
-  3: [60, 35, 5, 0, 0],
-  4: [45, 35, 18, 2, 0],
-  5: [35, 35, 25, 5, 0],
-  6: [25, 35, 30, 9, 1],
+  2: [100, 0, 0, 0, 0],
+  3: [100, 0, 0, 0, 0],
+  4: [65, 25, 10, 0, 0],
+  5: [45, 33, 20, 2, 0],
+  6: [30, 40, 25, 5, 0],
   7: [19, 30, 40, 10, 1],
-  8: [15, 25, 35, 20, 5],
-  9: [10, 20, 30, 30, 10]
+  8: [18, 25, 32, 22, 3],
+  9: [15, 20, 25, 30, 10],
+  10: [5, 10, 20, 40, 25]
 };
 
 export const RANKS = ['黑铁', '青铜', '翠钢', '钴银', '冰肽', '紫金', '投资大师', '资本帝王', '财富造物主'];
