@@ -77,9 +77,10 @@ export interface BotResult {
   threeStars: number;
 }
 
-export function playMatch(maxSteps = 400): BotResult {
+export function playMatch(maxSteps = 400, onStep?: (st: MatchState) => void): BotResult {
   const st = newMatch();
   for (let i = 0; i < maxSteps; i++) {
+    onStep?.(st);
     switch (st.phase) {
       case 'prep': {
         botPrep(st);
