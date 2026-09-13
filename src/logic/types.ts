@@ -328,8 +328,12 @@ export interface MatchState {
   strategies: string[];
   /** 当前投资策略三选一（id ×3，已采纳后清空） */
   strategyOffers: string[];
-  /** 策略计数器（超发货币节点数 / 四费晋升待定 / 无伤通关待定与开战血量 / 现金为王剩余场数等） */
+  /** 策略计数器（超发货币节点数与失去数额 / 四费晋升待定 / 现金为王剩余场数等） */
   strategyData: Record<string, number>;
+  /** 免费刷新次数（策略/环境发放，reroll 优先消耗） */
+  freeRerolls: number;
+  /** 免费购买次数（策略发放，buyShop 优先消耗） */
+  freeBuys: number;
   /** 战斗快照（用于结果展示） */
   lastBattle?: { win: boolean; enemyActions: number; limit: number; remaining: number };
   /** 待领取的补给内容 */

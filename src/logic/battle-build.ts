@@ -3,7 +3,7 @@ import { enemyById } from '../data/enemies';
 import { equipById } from '../data/equipment';
 import { PLANES } from '../data/stages';
 import { computeTeamFlags } from './synergy';
-import { cashShieldPct, strategyBattleMods, strategyEnemyMult, strategyTeamFlags, type StrategyBattleMods } from './strategy';
+import { cashShieldPct, strategyBattleMods, strategyEnemyMult, strategyTeamFlags, strategyUnitMods, type StrategyBattleMods } from './strategy';
 import { EMPTY_UNIT_FLAGS } from './types';
 import type { BattleNode, CombatUnit, MatchState, OwnedUnit, TeamFlags, UnitFlags } from './types';
 
@@ -27,11 +27,16 @@ export function mergeEquips(equipIds: string[]): { unit: UnitFlags; team: Partia
   return { unit, team };
 }
 
-/** 构建一名我方战斗单位（星级成长 + 装备 + 全队加成） */
-export function buildAllyUnit(u: OwnedUnit, pos: number, tf: TeamFlags): CombatUnit {
+/** 构建一名我方战斗单位（星级成长 + 装备 + 全队加成 + 可选策略按角色加成） */
+export function buildAllyUnit(u: OwnedUnit, pos: number, tf: TeamFlags, extraUnitFlags?: Partial<UnitFlags>): CombatUnit {
   const c = charById(u.charId);
   const m = STAR_MULT[u.star];
   const { unit: uf } = mergeEquips(u.equips);
+  if (extraUnitFlags) {
+    for (const [k, v] of Object.entries(extraUnitFlags)) {
+      (uf as unknown as Record<string, number>)[k] = ((uf as unknown as Record<string, number>)[k] ?? 0) + (v as number);
+    }
+  }
   const maxHp = Math.round(c.base.hp * m * (1 + tf.hpPct) * (1 + uf.hpPct));
   return {
     uid: u.uid,
@@ -187,7 +192,7 @@ export function buildBattleInput(st: MatchState): BattleInput {
   const back = st.board
     .filter(u => u.slot?.row === 'back')
     .sort((a, b) => (a.slot?.index ?? 0) - (b.slot?.index ?? 0));
-  const allies = front.map((u, i) => buildAllyUnit(u, i, tf));
+  const allies = front.map((u, i) => buildAllyUnit(u, i, tf, strategyUnitMods(st, u)));
   const backers = back.map((u, i) => buildBackerUnit(u, i, tf));
   // 风暴骑士：前台 1 号位加速
   const mods = strategyBattleMods(st);

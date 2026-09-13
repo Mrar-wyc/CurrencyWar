@@ -45,6 +45,8 @@ function migrateMatch(cur: MatchState): void {
   cur.strategyData = cur.strategyData && typeof cur.strategyData === 'object' && !Array.isArray(cur.strategyData)
     ? cur.strategyData
     : {};
+  cur.freeRerolls = typeof cur.freeRerolls === 'number' && Number.isFinite(cur.freeRerolls) ? cur.freeRerolls : 0;
+  cur.freeBuys = typeof cur.freeBuys === 'number' && Number.isFinite(cur.freeBuys) ? cur.freeBuys : 0;
   if (cur.phase === 'strategy' && cur.strategyOffers.length === 0) cur.phase = 'prep';
 }
 

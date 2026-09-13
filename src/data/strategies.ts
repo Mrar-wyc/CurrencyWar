@@ -25,12 +25,12 @@ export const STRATEGIES: StrategyDef[] = [
     desc: '立即将所有上阵角色变为费用 +1 的随机角色（保留星级与装备）。'
   },
   {
-    id: 'layoff_front', name: '大裁员', grade: 'silver',
-    desc: '立即出售所有上阵角色，获得双倍售价的金币（装备退回背包）。'
+    id: 'layoff_front', name: '大裁员', grade: 'gold',
+    desc: '立即出售所有角色（上阵与备战席），获得双倍售价的金币，并获得 6 次免费刷新。'
   },
   {
     id: 'layoff_all', name: '人力重组', grade: 'silver',
-    desc: '立即出售所有角色（上阵与备战席），获得双倍售价 +4 金币。'
+    desc: '立即出售所有角色（上阵与备战席），获得 1 个 2★3费、2 个 2★2费和 2 个 2★1费角色。'
   },
   {
     id: 'lucky_dog', name: '招财狗', grade: 'silver',
@@ -38,19 +38,19 @@ export const STRATEGIES: StrategyDef[] = [
   },
   {
     id: 'no_damage', name: '无伤通关', grade: 'silver',
-    desc: '下一场战斗若无人倒下且获胜，额外 +8 金币（一次性）。'
+    desc: '每场战斗胜利且无人倒下时，额外 +1 金币。'
   },
   {
     id: 'head_bash', name: '当头一棒', grade: 'silver',
     desc: '每场战斗开始时，对生命最高的敌人造成 1000% 最高攻击的伤害，并使其防御 -30%（2 回合）。'
   },
   {
-    id: 'cheap_reroll', name: '降本增效', grade: 'silver',
-    desc: '刷新商店的费用降低 1 金币。'
+    id: 'cheap_reroll', name: '降本增效', grade: 'gold',
+    desc: '立即出售所有角色（上阵与备战席），获得双倍售价的金币，接下来 6 次购买角色免费。'
   },
   {
-    id: 'ootd', name: 'OOTD', grade: 'silver',
-    desc: '全队每装备 1 种不同的装备，攻击与生命 +3%。'
+    id: 'ootd', name: 'OOTD', grade: 'gold',
+    desc: '全队每装备 1 种不同的装备，前后台强度 +6%、生命 +3%。'
   },
   // ============ 金色 ============
   {
@@ -59,11 +59,11 @@ export const STRATEGIES: StrategyDef[] = [
   },
   {
     id: 'hyperinflation', name: '超发货币', grade: 'gold',
-    desc: '立即清空金币；此后每推进 1 个节点 +14 金币（共 5 个节点）。'
+    desc: '立即失去所有金币；5 个节点后，返还失去的金币数额 +70。'
   },
   {
     id: 'lone_wolf', name: '独狼', grade: 'gold',
-    desc: '无激活羁绊时：全队攻击与生命 +20%，受伤减免 36%。'
+    desc: '自身所有羁绊均未激活的角色，获得 120% 前后台强度与 36% 受伤减免。'
   },
   {
     id: 'middle_class', name: '中产阶级', grade: 'gold',
@@ -71,15 +71,15 @@ export const STRATEGIES: StrategyDef[] = [
   },
   {
     id: 'three_three_three', name: '三三三', grade: 'gold',
-    desc: '每满足一项（拥有 3★ / 拥有 3 费 / 有人穿满 3 件装备）：全队攻击与生命 +8%。'
+    desc: '3★ / 3 费 / 穿满 3 件装备的角色，各获得 10% 速度与 20% 前后台强度，满足不同条件可叠加。'
   },
   {
     id: 'horde', name: '人海战术', grade: 'gold',
-    desc: '上阵 ≥8 人时：全队攻击与生命 +20%。'
+    desc: '全队攻击与生命 +10%；上阵 ≥8 人时，额外 +20%。'
   },
   {
     id: 'storm_knight', name: '风暴骑士', grade: 'gold',
-    desc: '前台 1 号位速度 +150%，但其每次行动后自伤 8% 生命上限。'
+    desc: '前台 1 号位速度 +150%；进入战斗时，其受到等同于生命上限 70% 的固定伤害。'
   },
   {
     id: 'cash_is_king', name: '现金为王', grade: 'gold',
@@ -87,7 +87,7 @@ export const STRATEGIES: StrategyDef[] = [
   },
   {
     id: 'struggle_protocol', name: '奋斗协议', grade: 'gold',
-    desc: '购买经验改扣 2 点小队生命（不耗金币）；首领战胜利后回复 20 生命。'
+    desc: '购买经验改扣 6 点小队生命（不耗金币）；首领战胜利后回复 50 生命。（官方为棱彩档）'
   },
   {
     id: 'great_conquest', name: '伟大征服', grade: 'gold',

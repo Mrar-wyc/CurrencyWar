@@ -68,6 +68,11 @@ export function simulateBattle(input: BattleInput): BattleResult {
       events.push({ t: 'act', uid: target.uid, kind: 'nuke', name: '当头一棒', sp, hits });
     }
   }
+  // 风暴骑士：开战时 1 号位受到固定比例生命上限的伤害（官方原文歧义下的可用解读，docs 近似清单）
+  if (mods.firstSelfHarmPct && allies.length && allies[0].alive) {
+    const h = applyDamage(allies[0], Math.round(allies[0].maxHp * mods.firstSelfHarmPct));
+    events.push({ t: 'act', uid: allies[0].uid, kind: 'selfharm', name: '风暴反噬', sp, hits: [h] });
+  }
 
   const pushAct = (uid: string, kind: Extract<BattleEvent, { t: 'act' }>['kind'], name: string, hits: HitInfo[]) => {
     events.push({ t: 'act', uid, kind, name, sp, hits });
@@ -348,11 +353,6 @@ export function simulateBattle(input: BattleInput): BattleResult {
           .map(a => healUnit(a, a.maxHp * (tf.regenPct + a.unitFlags.regenPct)))
           .filter(h => (h.heal ?? 0) > 0);
         if (hits.length) pushAct(actor.uid, 'regen', '生机回复', hits);
-      }
-      // 风暴骑士：前台 1 号位每次行动后自伤
-      if (mods.firstSelfHarmPct && actor === allies[0] && actor.alive) {
-        const h = applyDamage(actor, Math.round(actor.maxHp * mods.firstSelfHarmPct));
-        pushAct(actor.uid, 'selfharm', '风暴反噬', [h]);
       }
     } else {
       enemyAct(actor);

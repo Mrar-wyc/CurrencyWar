@@ -10,7 +10,7 @@ import {
   placeUnit, recallUnit, reroll, resolveBattle, sellUnit, unequipItem, sellValue
 } from '../src/game/match';
 import { computeTeamFlags } from '../src/logic/synergy';
-import { rerollCostOf, rollStrategyOffers, strategyEnemyMult, strategyTeamFlags } from '../src/logic/strategy';
+import { rerollCostOf, rollStrategyOffers, strategyEnemyMult, strategyTeamFlags, strategyUnitMods } from '../src/logic/strategy';
 import { strategyById } from '../src/data/strategies';
 import { EMPTY_TEAM_FLAGS } from '../src/logic/types';
 import type { MatchState, OwnedUnit } from '../src/logic/types';
@@ -129,14 +129,28 @@ describe('站位', () => {
 });
 
 describe('经济与结算', () => {
-  it('战斗胜利获得基础收入+利息+连胜奖励', () => {
+  it('战斗胜利获得基础收入+利息+胜利金+连胜奖励', () => {
     const st = newMatch();
     st.gold = 25; // 利息 2
     st.winStreak = 1;
     resolveBattle(st, true, 5, 14, 0);
-    // 基础 5 + 利息 2 + 2连胜奖励 1 = 8
-    expect(st.gold).toBe(33);
+    // 基础 5 + 利息 2 + 胜利金 1 + 2连胜奖励 1 = 9
+    expect(st.gold).toBe(34);
     expect(st.winStreak).toBe(2);
+  });
+
+  it('连胜奖励封顶 +3（官方）', () => {
+    const st = newMatch();
+    st.gold = 0;
+    st.winStreak = 5;
+    resolveBattle(st, true, 5, 14, 0);
+    // 基础 5 + 胜利金 1 + 6连胜奖励 3 = 9
+    expect(st.gold).toBe(9);
+    st.winStreak = 9;
+    st.gold = 0;
+    resolveBattle(st, true, 5, 14, 0);
+    // 10 连胜仍为 +3：基础 5 + 胜利金 1 + 3 = 9
+    expect(st.gold).toBe(9);
   });
 
   it('战斗失败扣血并获得补偿', () => {
@@ -158,12 +172,12 @@ describe('经济与结算', () => {
     expect(st.phase).toBe('gameOver');
   });
 
-  it('买经验可升级', () => {
+  it('买经验可升级（官方经验表 3→4 需 4 exp）', () => {
     const st = newMatch();
     st.gold = 20;
-    expect(buyExp(st)).toBeNull(); // +4 exp：3级需2升4，剩2
+    expect(buyExp(st)).toBeNull(); // +4 exp：3级需4升4，剩0
     expect(st.level).toBe(4);
-    expect(st.exp).toBe(2);
+    expect(st.exp).toBe(0);
   });
 });
 
@@ -394,7 +408,7 @@ describe('战斗引擎', () => {
     if (nuke?.t === 'act') expect(nuke.hits[0].dmg).toBeGreaterThan(0);
   });
 
-  it('风暴骑士：1 号位行动后自伤', () => {
+  it('风暴骑士：开战时 1 号位受 70% 上限固定伤害一次', () => {
     const front = ally('march7th', 1);
     const res = simulateBattle({
       allies: [front],
@@ -402,13 +416,13 @@ describe('战斗引擎', () => {
       enemies: [mkEnemy('boss_p3', 0.2)],
       spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 4,
       teamFlags: { ...EMPTY_TEAM_FLAGS },
-      strategyMods: { firstSelfHarmPct: 0.08 }
+      strategyMods: { firstSelfHarmPct: 0.7 }
     });
     const harms = res.events.filter(e => e.t === 'act' && e.kind === 'selfharm');
-    expect(harms.length).toBeGreaterThan(0);
+    expect(harms).toHaveLength(1); // 开战一次，不随行动重复
     if (harms[0].t === 'act') {
       expect(harms[0].hits[0].uid).toBe(front.uid);
-      expect(harms[0].hits[0].dmg).toBe(Math.round(front.maxHp * 0.08));
+      expect(harms[0].hits[0].dmg).toBe(Math.round(front.maxHp * 0.7));
     }
   });
 });
@@ -467,28 +481,65 @@ describe('投资策略', () => {
     expect(st.board.every(u => u.star === 2)).toBe(true);
   });
 
-  it('大裁员：出售上阵角色获双倍售价，装备退回', () => {
+  it('大裁员：出售全部角色双倍售价 + 6 次免费刷新', () => {
     const st = strategyPhase(['layoff_front']);
     const u = mkUnit('seele', 1, { row: 'front', index: 0 }); // 4费 1★ 售价 4
     u.equips = ['b_atk'];
+    const b = mkUnit('danheng', 1); // 备战席也出售
+    st.board = [u];
+    st.bench = [b];
+    st.gold = 0;
+    pickStrategy(st, 0);
+    expect(st.board).toHaveLength(0);
+    expect(st.bench).toHaveLength(0);
+    expect(st.gold).toBe(10); // (4+1)×2
+    expect(st.freeRerolls).toBe(6);
+    expect(st.inventory).toContain('b_atk');
+  });
+
+  it('人力重组：出售全部角色换 2★ 角色包', () => {
+    const st = strategyPhase(['layoff_all']);
+    st.board = [mkUnit('seele', 1, { row: 'front', index: 0 })];
+    st.bench = [mkUnit('march7th', 1)];
+    const goldBefore = st.gold;
+    pickStrategy(st, 0);
+    expect(st.board).toHaveLength(0);
+    expect(st.gold).toBe(goldBefore); // 不给金币
+    // 1×2★3费 + 2×2★2费 + 2×2★1费（tryMerge 可能合并，至少 3 名且全为 2★ 以上）
+    expect(st.bench.length).toBeGreaterThanOrEqual(3);
+    expect(st.bench.every(u => u.star >= 2)).toBe(true);
+    expect(st.bench.some(u => charById(u.charId).cost === 3)).toBe(true);
+  });
+
+  it('降本增效：出售全部双倍售价 + 6 次免费购买', () => {
+    const st = strategyPhase(['cheap_reroll']);
+    const u = mkUnit('seele', 1, { row: 'front', index: 0 });
     st.board = [u];
     st.gold = 0;
     pickStrategy(st, 0);
     expect(st.board).toHaveLength(0);
     expect(st.gold).toBe(8);
-    expect(st.inventory).toContain('b_atk');
+    expect(st.freeBuys).toBe(6);
+    // 免费购买：金币不足也能买，且不消耗金币
+    st.phase = 'prep';
+    st.shop = [{ charId: 'seele' }, { charId: null }, { charId: null }, { charId: null }, { charId: null }];
+    expect(buyShop(st, 0)).toBeNull();
+    expect(st.gold).toBe(8);
+    expect(st.freeBuys).toBe(5);
   });
 
-  it('超发货币：清空金币后每节点 +14 共 5 节点', () => {
+  it('超发货币：清空金币，5 节点后返还失去数额+70', () => {
     const st = strategyPhase(['hyperinflation']);
     st.gold = 30;
     pickStrategy(st, 0);
-    // 采纳即清空金币，随后立即推进 1 个节点：+14；再推 4 个节点凑满 5 次
-    expect(st.gold).toBe(14);
-    for (let i = 0; i < 4; i++) advanceNode(st);
-    expect(st.gold).toBe(70);
+    expect(st.gold).toBe(0);
+    // 采纳后推进 1 节点；再推 3 次共 4 节点（未到 5，无返还）；第 5 次推进一次性返还 30+70
+    for (let i = 0; i < 3; i++) advanceNode(st);
+    expect(st.gold).toBe(0);
     advanceNode(st);
-    expect(st.gold).toBe(70);
+    expect(st.gold).toBe(100);
+    advanceNode(st);
+    expect(st.gold).toBe(100);
   });
 
   it('四费晋升：下一个 4 费直接 2★，买其他费用不消耗', () => {
@@ -513,23 +564,21 @@ describe('投资策略', () => {
     st.gold = 0;
     st.winStreak = 1;
     resolveBattle(st, true, 5, 14, 0);
-    // 基础 5 + 2连胜奖励 1 + 招财狗 2 = 8
-    expect(st.gold).toBe(8);
+    // 基础 5 + 胜利金 1 + 2连胜奖励 1 + 招财狗 2 = 9
+    expect(st.gold).toBe(9);
   });
 
-  it('无伤通关：下一场胜利且无人倒下 +8，一次性', () => {
+  it('无伤通关：胜利且无人倒下 +1 金（常驻）', () => {
     const st = newMatch();
     st.strategies = ['no_damage'];
-    st.strategyData.no_damage = 1;
     st.gold = 0;
     resolveBattle(st, true, 5, 14, 0, 1); // 有人倒下：不触发
-    expect(st.gold).toBe(5); // 基础 5（首胜无连胜奖励）
-    st.strategyData.no_damage = 1;
+    // 基础 5 + 胜利金 1 = 6
+    expect(st.gold).toBe(6);
     st.gold = 0;
     resolveBattle(st, true, 5, 14, 0, 0);
-    // 基础 5 + 2连胜 1 + 8 = 14
-    expect(st.gold).toBe(14);
-    expect(st.strategyData.no_damage).toBe(0);
+    // 基础 5 + 胜利金 1 + 2连胜 1 + 无伤 1 = 8
+    expect(st.gold).toBe(8);
   });
 
   it('现金为王：清空上阵换 3 场 25% 护盾', () => {
@@ -547,26 +596,15 @@ describe('投资策略', () => {
     expect(st.strategyData.cash_is_king).toBe(2);
   });
 
-  it('条件加成：独狼/中产阶级/人海战术', () => {
+  it('条件加成：中产阶级(全队) / 人海(基础+满员) / 独狼与三三三(按角色)', () => {
     const st = newMatch();
-    st.strategies = ['lone_wolf'];
-    let f = strategyTeamFlags(st);
-    expect(f.atkPct).toBeCloseTo(0.20);
-    expect(f.dmgReduce).toBeCloseTo(0.36);
-    // 有激活羁绊时独狼失效
-    st.board = [
-      mkUnit('march7th', 1, { row: 'front', index: 0 }),
-      mkUnit('danheng', 1, { row: 'front', index: 1 })
-    ];
-    f = strategyTeamFlags(st);
-    expect(f.atkPct ?? 0).toBeCloseTo(0);
     // 中产阶级：2 名 2★
     st.strategies = ['middle_class'];
     st.bench = [mkUnit('march7th', 2), mkUnit('danheng', 2)];
-    f = strategyTeamFlags(st);
+    let f = strategyTeamFlags(st);
     expect(f.atkPct).toBeCloseTo(0.30);
     expect(f.dmgReduce).toBeCloseTo(0.10);
-    // 人海战术：上阵 8 人
+    // 人海战术：基础 +10%；上阵 8 人再 +20%
     st.strategies = ['horde'];
     st.bench = [];
     st.board = [];
@@ -575,7 +613,45 @@ describe('投资策略', () => {
       st.board.push(u);
     }
     f = strategyTeamFlags(st);
-    expect(f.atkPct).toBeCloseTo(0.20);
+    expect(f.atkPct).toBeCloseTo(0.30);
+    st.board = st.board.slice(0, 3);
+    f = strategyTeamFlags(st);
+    expect(f.atkPct).toBeCloseTo(0.10);
+    // 独狼（按角色）：丹恒的列车/爆发均未激活 → 获得 120%/36%
+    st.strategies = ['lone_wolf'];
+    const lone = mkUnit('danheng', 1, { row: 'front', index: 0 });
+    st.board = [lone];
+    let m = strategyUnitMods(st, lone);
+    expect(m.atkPct).toBeCloseTo(1.2);
+    expect(m.dmgReduce).toBeCloseTo(0.36);
+    // 三月七的护盾羁绊 1 人即激活 → 不享受独狼
+    const shield = mkUnit('march7th', 1, { row: 'front', index: 0 });
+    st.board = [shield];
+    m = strategyUnitMods(st, shield);
+    expect(m.atkPct ?? 0).toBeCloseTo(0);
+    // 三三三（按角色）：3★（+1）；3 件装备（+1）；4 费不计 → 2 项叠加
+    st.strategies = ['three_three_three'];
+    const s3 = mkUnit('seele', 3, { row: 'front', index: 0 });
+    s3.equips = ['b_atk', 'b_def', 'b_hp'];
+    m = strategyUnitMods(st, s3);
+    expect(m.atkPct).toBeCloseTo(0.4);
+    expect(m.spdPct).toBeCloseTo(0.2);
+  });
+
+  it('免费刷新/免费购买资源：reroll 与 buyShop 优先消耗', () => {
+    const st = newMatch();
+    st.freeRerolls = 2;
+    st.freeBuys = 1;
+    st.gold = 0;
+    expect(reroll(st)).toBeNull();
+    expect(st.freeRerolls).toBe(1);
+    expect(st.gold).toBe(0);
+    const idx = st.shop.findIndex(o => o.charId);
+    expect(buyShop(st, idx)).toBeNull();
+    expect(st.freeBuys).toBe(0);
+    expect(st.gold).toBe(0);
+    st.freeBuys = 0;
+    expect(buyShop(st, st.shop.findIndex(o => o.charId))).toBe('金币不足');
   });
 
   it('敌人数值系数：难度削减/伟大征服/策略难度加成', () => {
@@ -591,14 +667,5 @@ describe('投资策略', () => {
     st.winStreak = 0;
     // 招财狗为银 +0，promo4 为金 +4%
     expect(strategyEnemyMult(st)).toBeCloseTo(1.04);
-  });
-
-  it('降本增效：刷新费用 -1', () => {
-    const st = newMatch();
-    expect(rerollCostOf(st)).toBe(2);
-    st.strategies = ['cheap_reroll'];
-    expect(rerollCostOf(st)).toBe(1);
-    st.gold = 1;
-    expect(reroll(st)).toBeNull();
   });
 });

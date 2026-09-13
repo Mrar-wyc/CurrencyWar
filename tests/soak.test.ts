@@ -28,6 +28,8 @@ function assertInvariants(st: MatchState): void {
   }
   // 投资策略
   expect(st.strategies.length).toBeLessThanOrEqual(5);
+  expect(st.freeRerolls).toBeGreaterThanOrEqual(0);
+  expect(st.freeBuys).toBeGreaterThanOrEqual(0);
   if (st.phase === 'strategy') {
     expect(st.strategyOffers).toHaveLength(3);
     expect(new Set(st.strategyOffers).size).toBe(3);

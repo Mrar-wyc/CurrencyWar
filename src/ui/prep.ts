@@ -376,7 +376,7 @@ export function renderPrep(root: HTMLElement, ctx: AppCtx): void {
       h('button', {
         class: 'tb-btn',
         onclick: () => { const err = reroll(st); if (err) toast(err); ctx.refresh(); }
-      }, `刷新 ♦${rerollCostOf(st)}`),
+      }, st.freeRerolls > 0 ? `刷新(免费×${st.freeRerolls})` : `刷新 ♦${rerollCostOf(st)}`),
       h('button', {
         class: `tb-btn ${st.shopLocked ? 'on' : ''}`,
         onclick: () => { toggleLock(st); ctx.refresh(); }
@@ -385,7 +385,7 @@ export function renderPrep(root: HTMLElement, ctx: AppCtx): void {
         class: 'tb-btn',
         onclick: () => { const err = buyExp(st); if (err) toast(err); ctx.refresh(); }
       }, st.level >= CFG.maxLevel ? '满级'
-        : hasStrategy(st, 'struggle_protocol') ? '经验 ❤2' : `经验 ♦${CFG.expCost}`),
+        : hasStrategy(st, 'struggle_protocol') ? '经验 ❤6' : `经验 ♦${CFG.expCost}`),
       h('button', {
         class: 'tb-btn go',
         onclick: () => {
