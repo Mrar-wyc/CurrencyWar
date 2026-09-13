@@ -54,6 +54,7 @@ html, body {
 
 button {
   font-family: inherit;
+  white-space: nowrap;
   color: var(--violet-ink);
   background: rgba(255, 255, 255, 0.75);
   border: none;
@@ -170,23 +171,23 @@ button:active { transform: scale(0.95); }
 
 /* ================= 备战界面 ================= */
 .topbar {
-  height: 74px;
+  height: 68px;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 14px;
+  padding: 0 12px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.30), rgba(255, 255, 255, 0.12));
   border-bottom: 2px solid rgba(255, 255, 255, 0.5);
   position: relative;
   z-index: 2;
 }
 .tb-left { display: flex; align-items: center; gap: 16px; min-width: 0; }
-.tb-item { font-size: 24px; font-weight: 900; white-space: nowrap; letter-spacing: 0.5px;
+.tb-item { font-size: 21px; font-weight: 900; white-space: nowrap; letter-spacing: 0.5px;
   color: #fff; text-shadow: 0 2px 5px rgba(43, 47, 99, 0.45); }
 .tb-item.hp { color: #ffd7d7; }
 .tb-item.gold { color: #ffe08a; }
 .tb-item.streak.win { color: #ffe9b0; }
 .tb-item.streak.loss { color: #d5e2ff; }
 .exp-pill {
-  font-size: 14px; font-weight: 700;
+  font-size: 12.5px; font-weight: 700;
   background: rgba(43, 47, 99, 0.35);
   padding: 3px 10px; margin-left: 6px; border-radius: 8px;
   color: #fff;
@@ -194,18 +195,18 @@ button:active { transform: scale(0.95); }
 .exp-pill.max { background: var(--gold); color: #5c3d00; }
 
 /* 节点进度：菱形 */
-.node-progress { display: flex; gap: 13px; margin-left: 10px; }
-.np-row { display: flex; gap: 8px; opacity: 0.55; }
+.node-progress { display: flex; gap: 9px; margin-left: 6px; }
+.np-row { display: flex; gap: 6px; opacity: 0.55; }
 .np-row.cur { opacity: 1; }
 .np-dot {
-  width: 10px; height: 10px;
+  width: 8px; height: 8px;
   transform: rotate(45deg);
   background: rgba(255, 255, 255, 0.55);
   border: 1.5px solid rgba(255, 255, 255, 0.8);
   box-shadow: 0 1px 4px rgba(43, 47, 99, 0.3);
 }
 .np-dot.battle { background: #ff9d9d; }
-.np-dot.boss { background: #d090ff; width: 13px; height: 13px; }
+.np-dot.boss { background: #d090ff; width: 11px; height: 11px; }
 .np-dot.reward { background: var(--gold); }
 .np-dot.supply { background: #8fe3ff; }
 .np-dot.done { opacity: 0.4; }
@@ -213,7 +214,7 @@ button:active { transform: scale(0.95); }
 
 .tb-right { display: flex; gap: 10px; align-items: center; }
 .tb-btn {
-  padding: 13px 20px; font-size: 18.5px; font-weight: 800; letter-spacing: 1px;
+  padding: 10px 15px; font-size: 16.5px; font-weight: 800; letter-spacing: 1px;
   color: var(--violet-ink);
   background: linear-gradient(180deg, #ffffff, #e8ebff);
   border-radius: 12px;
@@ -222,7 +223,7 @@ button:active { transform: scale(0.95); }
 .tb-btn.go {
   background: linear-gradient(180deg, #ffd061, #f0a92e);
   color: #5c3d00;
-  font-size: 21px; padding: 13px 30px; font-weight: 900; letter-spacing: 3px;
+  font-size: 18.5px; padding: 10px 24px; font-weight: 900; letter-spacing: 2px;
   box-shadow: 0 4px 0 #c8871a, 0 8px 20px rgba(240, 169, 46, 0.5);
 }
 
@@ -409,7 +410,7 @@ button:active { transform: scale(0.95); }
 }
 .dp-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .dp-actions button {
-  padding: 13px 18px; font-size: 17.5px; font-weight: 800; letter-spacing: 1px;
+  padding: 11px 16px; font-size: 16.5px; font-weight: 800; letter-spacing: 1px;
   border-radius: 11px;
   background: var(--violet); color: #fff;
 }
@@ -444,7 +445,7 @@ button:active { transform: scale(0.95); }
   z-index: 5;
 }
 .battle-controls button {
-  padding: 15px 26px; font-size: 19px; font-weight: 800; letter-spacing: 1px;
+  padding: 13px 22px; font-size: 18px; font-weight: 800; letter-spacing: 1px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.92); color: var(--violet-ink);
 }
