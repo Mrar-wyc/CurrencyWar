@@ -1,10 +1,12 @@
 import { charById } from '../data/characters';
 import { equipById } from '../data/equipment';
 import { MATCH_CONFIG as CFG, PLANES } from '../data/stages';
+import { GRADE_COLORS, GRADE_NAMES, strategyById } from '../data/strategies';
 import {
   buyExp, buyShop, combineEquips, equipItemTo, findUnit, frontCapacity, placeUnit,
   recallUnit, reroll, sellUnit, sellValue, startBattle, toggleLock, unequipItem
 } from '../game/match';
+import { hasStrategy, rerollCostOf } from '../logic/strategy';
 import { activeTraits, traitById } from '../logic/synergy';
 import { enemyById } from '../data/enemies';
 import type { OwnedUnit } from '../logic/types';
@@ -30,7 +32,7 @@ function nodeProgress(ctx: AppCtx): HTMLElement {
       const kind = n.kind === 'battle' ? 'battle' : n.kind === 'boss' ? 'boss' : n.kind;
       row.append(h('div', {
         class: `np-dot ${kind} ${done ? 'done' : ''} ${cur ? 'cur' : ''}`,
-        title: n.kind === 'reward' ? '奖励' : n.kind === 'supply' ? '补给' : n.kind === 'boss' ? '首领' : '战斗'
+        title: n.kind === 'reward' ? '奖励' : n.kind === 'supply' ? '补给' : n.kind === 'boss' ? '首领' : n.kind === 'strategy' ? '策略' : '战斗'
       }));
     });
     wrap.append(row);
@@ -333,6 +335,19 @@ function intelPanel(ctx: AppCtx): HTMLElement {
     }
     panel.append(h('div', { class: 'hint' }, `敌方行动上限 ${b.enemyActionLimit} 次，超时判负`));
     panel.append(h('div', { class: 'hint' }, `战败扣 ${node.kind === 'boss' ? CFG.loseHpBoss : CFG.loseHpNormal} 点小队生命`));
+  } else if (node.kind === 'strategy') {
+    panel.append(h('div', { class: 'intel-node' }, '📈 投资策略'));
+    panel.append(h('div', { class: 'hint' }, '出战后进入三选一，采纳后持续整局'));
+  }
+  if (st.strategies.length) {
+    panel.append(h('div', { class: 'panel-title' }, `已采纳策略 ×${st.strategies.length}`));
+    for (const id of st.strategies) {
+      const s = strategyById(id);
+      panel.append(h('div', { class: 'intel-strategy' },
+        h('span', { style: { color: GRADE_COLORS[s.grade] } }, `[${GRADE_NAMES[s.grade]}]`),
+        ` ${s.name}`
+      ));
+    }
   }
   panel.append(h('div', { class: 'hint tip' }, '提示：后台角色计入羁绊并周期性自动施放后台赋能（伤害取决于后台强度），不会被敌人攻击'));
   return panel;
@@ -361,7 +376,7 @@ export function renderPrep(root: HTMLElement, ctx: AppCtx): void {
       h('button', {
         class: 'tb-btn',
         onclick: () => { const err = reroll(st); if (err) toast(err); ctx.refresh(); }
-      }, `刷新 ♦${CFG.rerollCost}`),
+      }, `刷新 ♦${rerollCostOf(st)}`),
       h('button', {
         class: `tb-btn ${st.shopLocked ? 'on' : ''}`,
         onclick: () => { toggleLock(st); ctx.refresh(); }
@@ -369,7 +384,8 @@ export function renderPrep(root: HTMLElement, ctx: AppCtx): void {
       h('button', {
         class: 'tb-btn',
         onclick: () => { const err = buyExp(st); if (err) toast(err); ctx.refresh(); }
-      }, st.level >= CFG.maxLevel ? '满级' : `经验 ♦${CFG.expCost}`),
+      }, st.level >= CFG.maxLevel ? '满级'
+        : hasStrategy(st, 'struggle_protocol') ? '经验 ❤2' : `经验 ♦${CFG.expCost}`),
       h('button', {
         class: 'tb-btn go',
         onclick: () => {

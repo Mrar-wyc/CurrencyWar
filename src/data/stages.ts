@@ -1,8 +1,9 @@
 import type { PlaneDef } from '../logic/types';
 
 /**
- * 3 个位面的节点序列（近似还原原版结构：战斗/奖励/补给/首领）。
+ * 3 个位面的节点序列（近似还原原版结构：战斗/投资策略/奖励/补给/首领）。
  * mul = 敌人属性倍率；enemyActionLimit = 敌方行动次数上限（超时判负）。
+ * strategy 节点 = 投资策略三选一（银/金两档，见 src/data/strategies.ts）。
  */
 export const PLANES: PlaneDef[] = [
   {
@@ -15,6 +16,7 @@ export const PLANES: PlaneDef[] = [
           enemies: [{ id: 'swarm_wing', mul: 0.9, count: 2 }, { id: 'swarm_node', mul: 0.9 }]
         }
       },
+      { kind: 'strategy' },
       { kind: 'reward' },
       {
         kind: 'battle',
@@ -40,30 +42,32 @@ export const PLANES: PlaneDef[] = [
         kind: 'battle',
         battle: {
           name: '遭遇战 · 魔阴身巡逻队', enemyActionLimit: 14,
-          enemies: [{ id: 'mara_soldier', mul: 1.75, count: 2 }, { id: 'mara_archer', mul: 1.75, count: 2 }]
+          enemies: [{ id: 'mara_soldier', mul: 1.9, count: 2 }, { id: 'mara_archer', mul: 1.9, count: 2 }]
         }
       },
+      { kind: 'strategy' },
       { kind: 'reward' },
       {
         kind: 'battle',
         battle: {
           name: '遭遇战 · 机兵哨站', enemyActionLimit: 14,
-          enemies: [{ id: 'automaton_bear', mul: 1.75 }, { id: 'automaton_drill', mul: 1.75, count: 2 }]
+          enemies: [{ id: 'automaton_bear', mul: 1.9 }, { id: 'automaton_drill', mul: 1.9, count: 2 }]
         }
       },
       {
         kind: 'battle',
         battle: {
           name: '遭遇战 · 虚卒先锋', enemyActionLimit: 14,
-          enemies: [{ id: 'voidranger', mul: 1.75, count: 2 }, { id: 'mara_archer', mul: 1.75, count: 2 }]
+          enemies: [{ id: 'voidranger', mul: 1.9, count: 2 }, { id: 'mara_archer', mul: 1.9, count: 2 }]
         }
       },
       { kind: 'supply' },
+      { kind: 'strategy' },
       {
         kind: 'boss',
         battle: {
           name: '首领 · 可可利亚，虚妄之母', enemyActionLimit: 18,
-          enemies: [{ id: 'automaton_drill', mul: 1.75, count: 2 }, { id: 'boss_p2', mul: 1.0 }]
+          enemies: [{ id: 'automaton_drill', mul: 1.9, count: 2 }, { id: 'boss_p2', mul: 1.15 }]
         }
       }
     ]
@@ -75,23 +79,25 @@ export const PLANES: PlaneDef[] = [
         kind: 'battle',
         battle: {
           name: '遭遇战 · 虚卒军团', enemyActionLimit: 14,
-          enemies: [{ id: 'voidranger', mul: 2.7, count: 2 }, { id: 'automaton_bear', mul: 2.7 }]
+          enemies: [{ id: 'voidranger', mul: 2.9, count: 2 }, { id: 'automaton_bear', mul: 2.9 }]
         }
       },
+      { kind: 'strategy' },
       { kind: 'reward' },
       {
         kind: 'battle',
         battle: {
           name: '遭遇战 · 蚕食者之群', enemyActionLimit: 14,
-          enemies: [{ id: 'spawn', mul: 2.7, count: 2 }, { id: 'mara_soldier', mul: 2.7, count: 2 }]
+          enemies: [{ id: 'spawn', mul: 2.9, count: 2 }, { id: 'mara_soldier', mul: 2.9, count: 2 }]
         }
       },
       { kind: 'supply' },
+      { kind: 'strategy' },
       {
         kind: 'battle',
         battle: {
           name: '遭遇战 · 精锐突击', enemyActionLimit: 14,
-          enemies: [{ id: 'spawn', mul: 2.85 }, { id: 'voidranger', mul: 2.85, count: 2 }, { id: 'automaton_bear', mul: 2.85 }]
+          enemies: [{ id: 'spawn', mul: 3.1 }, { id: 'voidranger', mul: 3.1, count: 2 }, { id: 'automaton_bear', mul: 3.1 }]
         }
       },
       {

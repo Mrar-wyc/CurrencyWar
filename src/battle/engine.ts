@@ -56,6 +56,18 @@ export function simulateBattle(input: BattleInput): BattleResult {
     b.nextActionAt = AV / (effSpd(b) * BACK_CAST_SPD_FACTOR);
   }
   events.push({ t: 'start', sp, spMax, limit: input.enemyActionLimit, shieldPct: input.shieldPct });
+  // 当头一棒：开战对生命最高的敌人造成策略伤害并减防
+  const mods = input.strategyMods ?? {};
+  if (mods.nuke && allies.length) {
+    const power = Math.max(...allies.filter(a => a.alive).map(a => a.atk), 0);
+    const target = enemies.filter(e => e.alive).reduce<CombatUnit | null>(
+      (best, e) => (!best || e.hp > best.hp ? e : best), null);
+    if (target && power > 0) {
+      const hits: HitInfo[] = [applyDamage(target, power * mods.nuke.mult)];
+      if (target.alive) target.buffs.push({ defPct: mods.nuke.defPct, turns: mods.nuke.turns });
+      events.push({ t: 'act', uid: target.uid, kind: 'nuke', name: '当头一棒', sp, hits });
+    }
+  }
 
   const pushAct = (uid: string, kind: Extract<BattleEvent, { t: 'act' }>['kind'], name: string, hits: HitInfo[]) => {
     events.push({ t: 'act', uid, kind, name, sp, hits });
@@ -336,6 +348,11 @@ export function simulateBattle(input: BattleInput): BattleResult {
           .map(a => healUnit(a, a.maxHp * (tf.regenPct + a.unitFlags.regenPct)))
           .filter(h => (h.heal ?? 0) > 0);
         if (hits.length) pushAct(actor.uid, 'regen', '生机回复', hits);
+      }
+      // 风暴骑士：前台 1 号位每次行动后自伤
+      if (mods.firstSelfHarmPct && actor === allies[0] && actor.alive) {
+        const h = applyDamage(actor, Math.round(actor.maxHp * mods.firstSelfHarmPct));
+        pushAct(actor.uid, 'selfharm', '风暴反噬', [h]);
       }
     } else {
       enemyAct(actor);

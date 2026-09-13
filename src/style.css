@@ -209,6 +209,7 @@ button:active { transform: scale(0.95); }
 .np-dot.boss { background: #d090ff; width: 11px; height: 11px; }
 .np-dot.reward { background: var(--gold); }
 .np-dot.supply { background: #8fe3ff; }
+.np-dot.strategy { background: #b48aff; }
 .np-dot.done { opacity: 0.4; }
 .np-dot.cur { outline: 2px solid #fff; outline-offset: 2.5px; }
 
@@ -503,6 +504,10 @@ button:active { transform: scale(0.95); }
 .rc-desc { font-size: 15.5px; color: var(--ink-soft); line-height: 1.5; min-height: 44px; }
 .rc-pick { font-size: 15px; color: var(--gold-deep); margin-top: 12px; letter-spacing: 2px; font-weight: 800; }
 .rc-pick::before, .rc-pick::after { content: '——'; color: rgba(217, 154, 30, 0.4); margin: 0 6px; }
+/* 投资策略三选一卡片 */
+.reward-card.strat.gold { box-shadow: 0 8px 30px rgba(245, 184, 61, 0.45); }
+.strat-grade { font-size: 14px; font-weight: 800; letter-spacing: 3px; margin-top: 8px; }
+.intel-strategy { font-size: 15.5px; color: var(--ink-soft); margin-bottom: 5px; font-weight: 700; }
 .supply-list { display: flex; flex-direction: column; gap: 12px; }
 .supply-item {
   background: rgba(255, 255, 255, 0.92);

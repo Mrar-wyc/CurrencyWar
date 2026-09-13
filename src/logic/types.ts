@@ -245,7 +245,7 @@ export type BattleEvent =
   | {
       t: 'act';
       uid: string;
-      kind: 'basic' | 'skill' | 'ult' | 'enemy' | 'counter' | 'shenjun' | 'zap' | 'dot' | 'followup' | 'thorns' | 'regen' | 'backend';
+      kind: 'basic' | 'skill' | 'ult' | 'enemy' | 'counter' | 'shenjun' | 'zap' | 'dot' | 'followup' | 'thorns' | 'regen' | 'backend' | 'nuke' | 'selfharm';
       name: string;
       sp: number;
       hits: HitInfo[];
@@ -270,7 +270,8 @@ export interface BattleNode {
 export type StageNode =
   | { kind: 'battle' | 'boss'; battle: BattleNode }
   | { kind: 'reward' }
-  | { kind: 'supply' };
+  | { kind: 'supply' }
+  | { kind: 'strategy' };
 
 export interface PlaneDef {
   name: string;
@@ -279,7 +280,7 @@ export interface PlaneDef {
 
 // ================= 对局状态 =================
 
-export type Phase = 'prep' | 'battle' | 'reward' | 'supplyResult' | 'gameOver' | 'victory';
+export type Phase = 'prep' | 'battle' | 'reward' | 'strategy' | 'supplyResult' | 'gameOver' | 'victory';
 
 export interface OwnedUnit {
   uid: string;
@@ -323,6 +324,12 @@ export interface MatchState {
   board: OwnedUnit[];
   inventory: string[];
   rewards: PendingReward[];
+  /** 已采纳的投资策略 id */
+  strategies: string[];
+  /** 当前投资策略三选一（id ×3，已采纳后清空） */
+  strategyOffers: string[];
+  /** 策略计数器（超发货币节点数 / 四费晋升待定 / 无伤通关待定与开战血量 / 现金为王剩余场数等） */
+  strategyData: Record<string, number>;
   /** 战斗快照（用于结果展示） */
   lastBattle?: { win: boolean; enemyActions: number; limit: number; remaining: number };
   /** 待领取的补给内容 */

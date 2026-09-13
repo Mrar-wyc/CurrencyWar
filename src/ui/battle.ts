@@ -8,7 +8,7 @@ import type { AppCtx } from './ctx';
 export function renderBattle(root: HTMLElement, ctx: AppCtx, input: BattleInput): void {
   const st = ctx.st;
   const node = PLANES[st.plane].nodes[st.node];
-  const name = node.kind === 'reward' || node.kind === 'supply' ? '' : node.battle.name;
+  const name = node.kind === 'battle' || node.kind === 'boss' ? node.battle.name : '';
 
   const canvas = h('canvas', { class: 'battle-canvas' }) as HTMLCanvasElement;
   const overlay = h('div', { class: 'battle-overlay hidden' });
@@ -56,7 +56,7 @@ export function renderBattle(root: HTMLElement, ctx: AppCtx, input: BattleInput)
           class: 'big-btn',
           onclick: () => {
             renderer.destroy();
-            ctx.onBattleDone(win, result.enemyActions, input.enemyActionLimit, snapshot.enemies.filter(e => e.alive).length);
+            ctx.onBattleDone(win, result.enemyActions, input.enemyActionLimit, snapshot.enemies.filter(e => e.alive).length, snapshot.allies.filter(a => !a.alive).length);
           }
         }, '继 续')
       )

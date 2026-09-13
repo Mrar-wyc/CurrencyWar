@@ -9,6 +9,7 @@ import { renderMenu } from './ui/menu';
 import { renderPrep } from './ui/prep';
 import { renderBattle } from './ui/battle';
 import { renderGameOver, renderReward, renderSupply, renderVictory } from './ui/overlays';
+import { renderStrategy } from './ui/strategy';
 import { renderCodex } from './ui/codex';
 import { renderHelp } from './ui/help';
 import { clear, h } from './ui/dom';
@@ -57,8 +58,8 @@ const ctx: AppCtx = {
     persistMatch(save, requireSt());
     render();
   },
-  onBattleDone: (win, enemyActions, limit, remaining) => {
-    resolveBattle(requireSt(), win, enemyActions, limit, remaining);
+  onBattleDone: (win, enemyActions, limit, remaining, allyDeaths) => {
+    resolveBattle(requireSt(), win, enemyActions, limit, remaining, allyDeaths ?? 0);
     pendingBattle = null;
     uiState.sel = null;
     persistMatch(save, requireSt());
@@ -151,6 +152,10 @@ function render(): void {
     case 'reward':
       persistMatch(save, st);
       renderReward(stage, ctx);
+      break;
+    case 'strategy':
+      persistMatch(save, st);
+      renderStrategy(stage, ctx);
       break;
     case 'supplyResult':
       persistMatch(save, st);

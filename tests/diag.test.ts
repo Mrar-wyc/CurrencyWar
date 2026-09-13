@@ -22,7 +22,7 @@ describe('单局诊断', () => {
         const input = startBattle(st)!;
         const snapshot = structuredClone(input);
         const node = PLANES[st.plane].nodes[st.node];
-        const name = node.kind === 'reward' || node.kind === 'supply' ? '?' : node.battle.name;
+        const name = node.kind === 'battle' || node.kind === 'boss' ? node.battle.name : '?';
         const eHp = snapshot.enemies.reduce((a, b) => a + b.maxHp, 0);
         const eAtk = snapshot.enemies.reduce((a, b) => a + b.atk, 0);
         const pAtk = snapshot.allies.reduce((a, b) => a + b.atk, 0);

@@ -22,8 +22,14 @@ export function loadSave(): SaveData {
     if (!raw) return defaultSave();
     const data = JSON.parse(raw) as SaveData;
     const merged = { ...defaultSave(), ...data };
-    if (merged.current && (merged.current.phase === 'battle' || merged.current.phase === 'gameOver' || merged.current.phase === 'victory')) {
-      merged.current.phase = 'prep';
+    if (merged.current) {
+      // 旧档迁移：投资策略字段默认值
+      merged.current.strategies ??= [];
+      merged.current.strategyOffers ??= [];
+      merged.current.strategyData ??= {};
+      if (merged.current.phase === 'battle' || merged.current.phase === 'gameOver' || merged.current.phase === 'victory') {
+        merged.current.phase = 'prep';
+      }
     }
     return merged;
   } catch {
@@ -39,9 +45,9 @@ export function writeSave(data: SaveData): void {
   }
 }
 
-/** 备战/领奖阶段自动续档（深拷贝，避免存档被对局中的状态污染） */
+/** 备战/领奖/选策略阶段自动续档（深拷贝，避免存档被对局中的状态污染） */
 export function persistMatch(save: SaveData, st: MatchState): void {
-  if (st.phase === 'prep' || st.phase === 'reward' || st.phase === 'supplyResult') {
+  if (st.phase === 'prep' || st.phase === 'reward' || st.phase === 'strategy' || st.phase === 'supplyResult') {
     save.current = structuredClone(st);
   } else if (st.phase === 'battle') {
     // 战斗中途退出：回退到该节点备战阶段

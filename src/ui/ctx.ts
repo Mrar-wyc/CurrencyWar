@@ -27,8 +27,8 @@ export interface AppCtx {
   goMenu(): void;
   /** 备战界面点"出战"后调用 */
   onBattleStart(input: BattleInput): void;
-  /** 战斗界面结算完成点"继续"后调用 */
-  onBattleDone(win: boolean, enemyActions: number, limit: number, remaining: number): void;
+  /** 战斗界面结算完成点"继续"后调用（allyDeaths 供"无伤通关"类策略判定） */
+  onBattleDone(win: boolean, enemyActions: number, limit: number, remaining: number, allyDeaths?: number): void;
   /** 当前选中项 */
   uiSel(): Selection | null;
   setSel(s: Selection | null): void;

@@ -3,6 +3,7 @@ import { enemyById } from '../data/enemies';
 import { equipById } from '../data/equipment';
 import { PLANES } from '../data/stages';
 import { computeTeamFlags } from './synergy';
+import { cashShieldPct, strategyBattleMods, strategyEnemyMult, strategyTeamFlags, type StrategyBattleMods } from './strategy';
 import { EMPTY_UNIT_FLAGS } from './types';
 import type { BattleNode, CombatUnit, MatchState, OwnedUnit, TeamFlags, UnitFlags } from './types';
 
@@ -156,6 +157,8 @@ export interface BattleInput {
   shieldPct: number;
   enemyActionLimit: number;
   teamFlags: TeamFlags;
+  /** 投资策略的战斗内修改器（当头一棒/风暴骑士） */
+  strategyMods?: StrategyBattleMods;
 }
 
 /** 从对局状态构建一场战斗的完整输入 */
@@ -172,6 +175,12 @@ export function buildBattleInput(st: MatchState): BattleInput {
       }
     }
   }
+  // 投资策略：条件型全队加成 + 现金为王开战护盾
+  for (const [k, v] of Object.entries(strategyTeamFlags(st))) {
+    (tf as unknown as Record<string, number>)[k] += v as number;
+  }
+  tf.startShieldPct += cashShieldPct(st);
+
   const front = st.board
     .filter(u => u.slot?.row === 'front')
     .sort((a, b) => (a.slot?.index ?? 0) - (b.slot?.index ?? 0));
@@ -180,7 +189,19 @@ export function buildBattleInput(st: MatchState): BattleInput {
     .sort((a, b) => (a.slot?.index ?? 0) - (b.slot?.index ?? 0));
   const allies = front.map((u, i) => buildAllyUnit(u, i, tf));
   const backers = back.map((u, i) => buildBackerUnit(u, i, tf));
+  // 风暴骑士：前台 1 号位加速
+  const mods = strategyBattleMods(st);
+  if (mods.firstSelfHarmPct && allies.length) allies[0].spd = Math.round(allies[0].spd * 2.5);
+  // 敌人乘策略系数（难度削减 / 伟大征服）
+  const enemyMult = strategyEnemyMult(st);
   const enemies = buildEnemies(battle);
+  if (enemyMult !== 1) {
+    for (const e of enemies) {
+      e.maxHp = Math.max(1, Math.round(e.maxHp * enemyMult));
+      e.hp = e.maxHp;
+      e.atk = Math.max(1, Math.round(e.atk * enemyMult));
+    }
+  }
   const spMax = 5 + tf.spMaxBonus;
   return {
     allies,
@@ -190,13 +211,14 @@ export function buildBattleInput(st: MatchState): BattleInput {
     spMax,
     shieldPct: tf.startShieldPct,
     enemyActionLimit: battle.enemyActionLimit,
-    teamFlags: tf
+    teamFlags: tf,
+    strategyMods: mods
   };
 }
 
 /** 取当前节点的战斗定义（当前节点必须是战斗节点） */
 export function currentBattle(st: MatchState): BattleNode {
   const n = PLANES[st.plane].nodes[st.node];
-  if (n.kind === 'reward' || n.kind === 'supply') throw new Error('当前节点不是战斗节点');
+  if (n.kind !== 'battle' && n.kind !== 'boss') throw new Error('当前节点不是战斗节点');
   return n.battle;
 }

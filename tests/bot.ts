@@ -4,7 +4,7 @@ import { MATCH_CONFIG as CFG } from '../src/data/stages';
 import { simulateBattle } from '../src/battle/engine';
 import {
   ackSupply, buyExp, buyShop, combineEquips, equipItemTo, newMatch, pickReward,
-  placeUnit, recallUnit, reroll, startBattle, resolveBattle
+  pickStrategy, placeUnit, recallUnit, reroll, startBattle, resolveBattle
 } from '../src/game/match';
 import type { MatchState } from '../src/logic/types';
 
@@ -96,6 +96,13 @@ export function playMatch(maxSteps = 400): BotResult {
         let idx = st.rewards.findIndex(r => r.kind === 'equip' && equipById(r.equipId!).tier === 'advanced');
         if (idx < 0) idx = st.rewards.findIndex(r => r.kind === 'equip');
         pickReward(st, idx >= 0 ? idx : 0);
+        break;
+      }
+      case 'strategy': {
+        // 稳健偏好：经济/减难/晋升优先，否则取第一个
+        const prefer = ['lucky_dog', 'simple_mode', 'promo4', 'hyperinflation', 'middle_class'];
+        const idx = st.strategyOffers.findIndex(id => prefer.includes(id));
+        pickStrategy(st, idx >= 0 ? idx : 0);
         break;
       }
       case 'supplyResult':

@@ -77,7 +77,7 @@ export class BattleRenderer {
   private speed = 1;
   /** 技能名横幅（官方演出） */
   private bannerText = '';
-  private bannerKind: 'basic' | 'skill' | 'ult' | 'enemy' | 'backend' | 'none' = 'none';
+  private bannerKind: 'basic' | 'skill' | 'ult' | 'enemy' | 'backend' | 'nuke' | 'none' = 'none';
   private bannerUntil = 0;
 
   constructor(
@@ -179,15 +179,17 @@ export class BattleRenderer {
       this.sp = ev.sp;
       if (ev.kind === 'enemy') this.enemyActions++;
       this.evDur = 380 + ev.hits.length * 260;
-      // 技能名横幅：普攻/战技/终结技/敌方技能/后台赋能
-      if (ev.kind === 'basic' || ev.kind === 'skill' || ev.kind === 'ult' || ev.kind === 'enemy' || ev.kind === 'backend') {
+      // 技能名横幅：普攻/战技/终结技/敌方技能/后台赋能/策略核爆
+      if (ev.kind === 'basic' || ev.kind === 'skill' || ev.kind === 'ult' || ev.kind === 'enemy' || ev.kind === 'backend' || ev.kind === 'nuke') {
         const v = this.byUid.get(ev.uid);
         if (v) {
           this.bannerText = ev.kind === 'ult'
             ? `${v.name}　${ev.name}！`
             : ev.kind === 'backend'
               ? `【后台】${v.name}　${ev.name}`
-              : `${v.name}　${ev.name}`;
+              : ev.kind === 'nuke'
+                ? `【策略】${ev.name}`
+                : `${v.name}　${ev.name}`;
           this.bannerKind = ev.kind;
           this.bannerUntil = performance.now() + (ev.kind === 'ult' ? 1400 : 900);
         }
@@ -330,6 +332,7 @@ export class BattleRenderer {
       const tint = this.bannerKind === 'ult' ? ['rgba(255,209,102,0.95)', 'rgba(240,169,46,0.85)']
         : this.bannerKind === 'enemy' ? ['rgba(255,120,120,0.9)', 'rgba(200,80,80,0.8)']
         : this.bannerKind === 'backend' ? ['rgba(110,220,200,0.92)', 'rgba(70,180,160,0.85)']
+        : this.bannerKind === 'nuke' ? ['rgba(255,196,120,0.95)', 'rgba(230,120,80,0.85)']
         : ['rgba(167,160,255,0.92)', 'rgba(120,110,235,0.85)'];
       bg.addColorStop(0, 'rgba(30,26,70,0)');
       bg.addColorStop(0.2, tint[0]);

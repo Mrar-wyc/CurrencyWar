@@ -1,8 +1,9 @@
-import { charById } from '../data/characters';
+import { charById, CHARACTERS } from '../data/characters';
 import { ADVANCED_EQUIPS, equipById, findCombine, randomBasicEquip } from '../data/equipment';
 import { MATCH_CONFIG as CFG, PLANES } from '../data/stages';
 import { createPool, returnOffers, rollShop } from '../logic/shop';
 import { buildBattleInput } from '../logic/battle-build';
+import { hasStrategy, rerollCostOf, rollStrategyOffers } from '../logic/strategy';
 import type { BattleInput } from '../logic/battle-build';
 import type { MatchState, OwnedUnit, PendingReward } from '../logic/types';
 
@@ -28,6 +29,9 @@ export function newMatch(): MatchState {
     board: [],
     inventory: [],
     rewards: [],
+    strategies: [],
+    strategyOffers: [],
+    strategyData: {},
     seq: 1
   };
   st.shop = rollShop(st.level, st.pool);
@@ -77,19 +81,27 @@ export function buyShop(st: MatchState, idx: number): string | null {
   if (!offer?.charId) return '该商品已售出';
   const c = charById(offer.charId);
   if (st.gold < c.cost) return '金币不足';
-  const willMerge = countOwnedSame(st, c.id, 1) >= 2;
+  const promo4 = hasStrategy(st, 'promo4') && (st.strategyData.promo4 ?? 0) > 0 && c.cost === 4;
+  const willMerge = countOwnedSame(st, c.id, 1) >= 2 || (promo4 && countOwnedSame(st, c.id, 2) >= 2);
   if (st.bench.length >= CFG.benchSlots && !willMerge) return '备战席已满';
   st.gold -= c.cost;
   offer.charId = null;
-  st.bench.push({ uid: `u${st.seq++}`, charId: c.id, star: 1, slot: null, equips: [] });
+  const unit: OwnedUnit = { uid: `u${st.seq++}`, charId: c.id, star: 1, slot: null, equips: [] };
+  // 四费晋升：下一个 4 费直接 2★
+  if (promo4) {
+    unit.star = 2;
+    st.strategyData.promo4 = 0;
+  }
+  st.bench.push(unit);
   tryMerge(st);
   return null;
 }
 
 export function reroll(st: MatchState): string | null {
   if (st.phase !== 'prep') return '当前不能刷新';
-  if (st.gold < CFG.rerollCost) return '金币不足';
-  st.gold -= CFG.rerollCost;
+  const cost = rerollCostOf(st);
+  if (st.gold < cost) return '金币不足';
+  st.gold -= cost;
   returnOffers(st.pool, st.shop);
   st.shop = rollShop(st.level, st.pool);
   return null;
@@ -112,6 +124,13 @@ export function gainExp(st: MatchState, n: number): void {
 export function buyExp(st: MatchState): string | null {
   if (st.phase !== 'prep') return '当前不能购买经验';
   if (st.level >= CFG.maxLevel) return '已达到最高等级';
+  // 奋斗协议：买经验改扣生命
+  if (hasStrategy(st, 'struggle_protocol')) {
+    if (st.hp <= 2) return '生命不足';
+    st.hp -= 2;
+    gainExp(st, CFG.expGain);
+    return null;
+  }
   if (st.gold < CFG.expCost) return '金币不足';
   st.gold -= CFG.expCost;
   gainExp(st, CFG.expGain);
@@ -253,7 +272,8 @@ function rollRewards(): PendingReward[] {
 }
 
 /** 战斗结束结算：收入 → 扣血 → 推进节点 */
-export function resolveBattle(st: MatchState, win: boolean, enemyActions: number, limit: number, remaining: number): void {
+export function resolveBattle(st: MatchState, win: boolean, enemyActions: number, limit: number, remaining: number, allyDeaths = 0): void {
+  const node = PLANES[st.plane].nodes[st.node];
   const interest = Math.min(CFG.interestCap, Math.floor(st.gold / 10));
   let income = CFG.baseIncome + interest;
   if (win) {
@@ -261,14 +281,27 @@ export function resolveBattle(st: MatchState, win: boolean, enemyActions: number
     st.lossStreak = 0;
     st.battlesWon++;
     st.bestWinStreak = Math.max(st.bestWinStreak, st.winStreak);
-    income += CFG.winStreakBonus(st.winStreak);
+    // 伟大征服：连胜奖励 ×3
+    income += CFG.winStreakBonus(st.winStreak) * (hasStrategy(st, 'great_conquest') ? 3 : 1);
+    // 招财狗：每胜 +2
+    if (hasStrategy(st, 'lucky_dog')) income += 2;
   } else {
     st.lossStreak++;
     st.winStreak = 0;
     st.battlesLost++;
     income += CFG.lossCompensation;
-    const node = PLANES[st.plane].nodes[st.node];
     st.hp -= node.kind === 'boss' ? CFG.loseHpBoss : CFG.loseHpNormal;
+  }
+  // 无伤通关：下一场胜利且无人倒下（一次性）
+  if ((st.strategyData.no_damage ?? 0) > 0) {
+    st.strategyData.no_damage = 0;
+    if (win && allyDeaths === 0) income += 8;
+  }
+  // 现金为王：护盾场数消耗
+  if ((st.strategyData.cash_is_king ?? 0) > 0) st.strategyData.cash_is_king--;
+  // 奋斗协议：首领战胜利回血
+  if (win && hasStrategy(st, 'struggle_protocol') && node.kind === 'boss') {
+    st.hp = Math.min(CFG.startHp, st.hp + 20);
   }
   gainExp(st, CFG.freeExpPerRound);
   st.gold += income;
@@ -283,6 +316,11 @@ export function resolveBattle(st: MatchState, win: boolean, enemyActions: number
 
 /** 推进到下一节点并设置阶段 */
 export function advanceNode(st: MatchState): void {
+  // 超发货币：每推进 1 节点 +14（共 5 个节点）
+  if (hasStrategy(st, 'hyperinflation') && (st.strategyData.hyperinflation ?? 0) < 5) {
+    st.strategyData.hyperinflation = (st.strategyData.hyperinflation ?? 0) + 1;
+    st.gold += 14;
+  }
   st.node++;
   if (st.node >= PLANES[st.plane].nodes.length) {
     st.plane++;
@@ -299,9 +337,80 @@ export function advanceNode(st: MatchState): void {
   } else if (next.kind === 'supply') {
     st.supplyItems = [randomBasicEquip(), randomBasicEquip()];
     st.phase = 'supplyResult';
+  } else if (next.kind === 'strategy') {
+    st.strategyOffers = rollStrategyOffers();
+    st.phase = 'strategy';
   } else {
     autoRefreshShop(st);
     st.phase = 'prep';
+  }
+}
+
+/** 采纳投资策略（三选一）：应用即时效果后推进节点 */
+export function pickStrategy(st: MatchState, idx: number): void {
+  if (st.phase !== 'strategy') return;
+  const id = st.strategyOffers[idx];
+  if (!id) return;
+  st.strategies.push(id);
+  st.strategyOffers = [];
+  applyInstantStrategy(st, id);
+  advanceNode(st);
+}
+
+/** 即时生效的策略效果（其余为条件/战斗期效果，由 strategy.ts 与 battle-build 读取） */
+function applyInstantStrategy(st: MatchState, id: string): void {
+  switch (id) {
+    case 'promo_all': {
+      // 上阵角色全部变为费用+1 的随机角色；同屏防重名
+      const used = new Set(st.board.map(u => u.charId));
+      for (const u of st.board) {
+        const cur = charById(u.charId);
+        const pool = CHARACTERS.filter(c => c.cost === cur.cost + 1 && !used.has(c.id));
+        if (!pool.length) continue;
+        const next = pool[Math.floor(Math.random() * pool.length)];
+        used.delete(u.charId);
+        used.add(next.id);
+        u.charId = next.id;
+      }
+      tryMerge(st);
+      break;
+    }
+    case 'layoff_front': {
+      let gold = 0;
+      for (const u of st.board) {
+        gold += sellValue(u) * 2;
+        st.inventory.push(...u.equips);
+      }
+      st.board = [];
+      st.gold += gold;
+      break;
+    }
+    case 'layoff_all': {
+      let gold = 0;
+      for (const u of [...st.board, ...st.bench]) {
+        gold += sellValue(u) * 2;
+        st.inventory.push(...u.equips);
+      }
+      st.board = [];
+      st.bench = [];
+      st.gold += gold + 4;
+      break;
+    }
+    case 'cash_is_king': {
+      for (const u of st.board) st.inventory.push(...u.equips);
+      st.board = [];
+      st.strategyData.cash_is_king = 3;
+      break;
+    }
+    case 'hyperinflation':
+      st.gold = 0;
+      break;
+    case 'no_damage':
+      st.strategyData.no_damage = 1;
+      break;
+    case 'promo4':
+      st.strategyData.promo4 = 1;
+      break;
   }
 }
 
