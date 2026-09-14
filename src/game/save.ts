@@ -60,10 +60,24 @@ export function migrateMatch(cur: MatchState): void {
   cur.strategyData = cur.strategyData && typeof cur.strategyData === 'object' && !Array.isArray(cur.strategyData)
     ? cur.strategyData
     : {};
-  cur.freeRerolls = typeof cur.freeRerolls === 'number' && Number.isFinite(cur.freeRerolls) ? cur.freeRerolls : 0;
-  cur.freeBuys = typeof cur.freeBuys === 'number' && Number.isFinite(cur.freeBuys) ? cur.freeBuys : 0;
+  // 数值字段：NaN/Infinity/越界一律钳回安全值——脏档会直接把顶栏、备战面板与战斗渲染打崩
+  const num = (v: unknown, fallback: number, min: number, max: number): number =>
+    typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, Math.round(v))) : fallback;
+  cur.freeRerolls = num(cur.freeRerolls, 0, 0, 99);
+  cur.freeBuys = num(cur.freeBuys, 0, 0, 99);
   cur.wealthGem = cur.wealthGem === true;
-  cur.gemGoldTick = typeof cur.gemGoldTick === 'number' && Number.isFinite(cur.gemGoldTick) ? cur.gemGoldTick : 0;
+  cur.gemGoldTick = num(cur.gemGoldTick, 0, 0, 999);
+  // 载入时必为进行中的对局（0 血/终局已由 loadSave 弃档），故生命下限钳到 1 而不是 0
+  cur.hp = num(cur.hp, CFG.startHp, 1, CFG.startHp);
+  cur.gold = num(cur.gold, 0, 0, 9999);
+  cur.level = num(cur.level, CFG.startLevel, CFG.startLevel, CFG.maxLevel);
+  cur.exp = num(cur.exp, 0, 0, 999);
+  cur.winStreak = num(cur.winStreak, 0, 0, 99);
+  cur.lossStreak = num(cur.lossStreak, 0, 0, 99);
+  cur.battlesWon = num(cur.battlesWon, 0, 0, 999);
+  cur.battlesLost = num(cur.battlesLost, 0, 0, 999);
+  cur.bestWinStreak = num(cur.bestWinStreak, 0, 0, 99);
+  cur.threeStarsMade = num(cur.threeStarsMade, 0, 0, 999);
   if (cur.phase === 'strategy' && cur.strategyOffers.length === 0) cur.phase = 'prep';
   // 投资环境：id 白名单过滤 + 计数器数值校验 + 空三选一回退
   const envOk = new Set(ENVIRONMENTS.map(e => e.id));
@@ -103,6 +117,9 @@ export function migrateMatch(cur: MatchState): void {
   cur.board = filterUnits(cur.board);
   cur.bench = filterUnits(cur.bench);
   for (const u of [...cur.board, ...cur.bench]) u.equips = filterIds(u.equips);
+  // 规模不变量（脏档可能让上阵数/备战席与等级脱钩）：超出上限时截断，保持面板计数与 placeUnit 校验一致
+  if (cur.board.length > cur.level) cur.board = cur.board.slice(0, cur.level);
+  if (cur.bench.length > CFG.benchSlots) cur.bench = cur.bench.slice(0, CFG.benchSlots);
   // 节点坐标越界回起点
   if (!Number.isInteger(cur.plane) || cur.plane < 0 || cur.plane >= PLANES.length
     || !Number.isInteger(cur.node) || cur.node < 0 || cur.node >= PLANES[cur.plane].nodes.length) {
@@ -115,8 +132,9 @@ export function migrateMatch(cur: MatchState): void {
 export function writeSave(data: SaveData): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(data));
-  } catch {
-    /* 忽略存储异常（隐私模式等） */
+  } catch (e) {
+    // 不抛（隐私模式/配额满不能中断对局），但要留痕：否则「进度莫名丢失」无从排查
+    console.warn('[save] 写入失败，本局进度不会保存', e);
   }
 }
 
