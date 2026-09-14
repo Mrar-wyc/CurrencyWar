@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { charById, CHARACTERS, POOL_COPIES } from '../src/data/characters';
 import { enemyById } from '../src/data/enemies';
 import { equipById, findCombine, ALL_EQUIPS, BASIC_EQUIPS, ADVANCED_EQUIPS, EMBLEM_EQUIPS } from '../src/data/equipment';
@@ -9,7 +9,7 @@ import { createPool } from '../src/logic/shop';
 import { simulateBattle } from '../src/battle/engine';
 import { buildAllyUnit, buildBackerUnit, buildBattleInput } from '../src/logic/battle-build';
 import {
-  advanceNode, backCapacity, buyShop, buyExp, combineEquips, equipItemTo, newMatch, pickStrategy,
+  advanceNode, backCapacity, buyShop, buyExp, combineEquips, equipItemTo, newMatch, pickEnvironment, pickStrategy,
   placeUnit, recallUnit, reroll, resolveBattle, sellUnit, unequipItem, sellValue
 } from '../src/game/match';
 import { activeTraits, computeTeamFlags, traitById } from '../src/logic/synergy';
@@ -18,6 +18,8 @@ import { strategyById } from '../src/data/strategies';
 import { EMPTY_TEAM_FLAGS } from '../src/logic/types';
 import { loadSave, migrateMatch, persistMatch, type SaveData } from '../src/game/save';
 import { strategyBattleMods } from '../src/logic/strategy';
+import { ENVIRONMENTS, envById } from '../src/data/environments';
+import { environmentTeamFlags, rollEnvironmentOffers } from '../src/logic/environment';
 import type { CombatUnit, MatchState, OwnedUnit } from '../src/logic/types';
 
 /** 测试用：跳过开局环境三选一，直接进备战（环境逻辑有专测） */
@@ -908,23 +910,31 @@ describe('敌人词缀', () => {
     expect(burnEvents.length).toBeGreaterThan(0);
   });
 
-  it('软弱无力：未穿满装备的我方伤害 ×0.85（对照）', () => {
-    const run = (affixes: string[]) => {
-      const res = simulateBattle({
-        allies: [ally('seele', 1)], backers: [],
-        enemies: [mkEnemy('boss_p3', 3)], // 高血敌打不死：行动数确定，只比伤害总量
-        spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 5,
-        teamFlags: { ...EMPTY_TEAM_FLAGS }, affixes
-      });
-      return res.events.filter(ev => ev.t === 'act' && ev.kind !== 'enemy')
-        .flatMap(ev => (ev.t === 'act' ? ev.hits : []))
-        .filter(h => h.dmg !== undefined)
-        .reduce((s, h) => s + (h.dmg ?? 0), 0);
+  it('软弱无力：未穿满装备的我方伤害 ×0.85（固定种子对照）', () => {
+    // 固定随机序列：两次战斗的摇档/暴击完全一致，weak 应精确等于 base×0.85
+    const seq = Array.from({ length: 4000 }, (_, k) => 0.3 + (k % 7) * 0.1); // 全部 ≥0.3：不触发 5% 暴击
+    const run = (affixes: string[]): number => {
+      let cursor = 0;
+      const spy = vi.spyOn(Math, 'random').mockImplementation(() => seq[cursor++ % seq.length]);
+      try {
+        const res = simulateBattle({
+          allies: [ally('seele', 1)], backers: [],
+          enemies: [mkEnemy('boss_p3', 3)],
+          spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 40,
+          teamFlags: { ...EMPTY_TEAM_FLAGS }, affixes
+        });
+        return res.events.filter(ev => ev.t === 'act' && (ev.kind === 'basic' || ev.kind === 'skill' || ev.kind === 'ult'))
+          .flatMap(ev => (ev.t === 'act' ? ev.hits : []))
+          .filter(h => h.dmg !== undefined)
+          .reduce((s2, h) => s2 + (h.dmg ?? 0), 0);
+      } finally {
+        spy.mockRestore();
+      }
     };
     const base = run([]);
     const weak = run(['weakness']);
     expect(base).toBeGreaterThan(0);
-    expect(weak).toBeLessThan(base * 0.93);
+    expect(weak).toBeCloseTo(base * 0.85, -1);
   });
 
   it('沉重脚步：我方受击后行动延后（事件顺序扰动）', () => {
@@ -1129,3 +1139,143 @@ describe('复盘补测：引擎细节', () => {
     if (end?.t === 'end') expect(end.win).toBe(false);
   });
 });
+
+describe('投资环境与特邀专家', () => {
+  it('环境数据完整性：16 条、id 唯一、品质合法', () => {
+    expect(ENVIRONMENTS).toHaveLength(16);
+    const ids = ENVIRONMENTS.map(e => e.id);
+    expect(new Set(ids).size).toBe(16);
+    for (const e of ENVIRONMENTS) expect(['silver', 'gold']).toContain(e.grade);
+  });
+
+  it('开局即环境三选一，采纳后进备战且不推节点', () => {
+    const st = newMatch();
+    expect(st.phase).toBe('environment');
+    expect(st.environmentOffers).toHaveLength(3);
+    expect(new Set(st.environmentOffers).size).toBe(3);
+    pickEnvironment(st, 0);
+    expect(st.phase).toBe('prep');
+    expect(st.environments).toHaveLength(1);
+    expect(st.node).toBe(0);
+  });
+
+  it('概念股：送对应阵营 1 费角色 + 简易装备', () => {
+    const st = newMatchPrep();
+    const inv0 = st.inventory.length;
+    st.bench = [];
+    st.phase = 'environment';
+    st.environmentOffers = ['stock_express', 'money_printing', 'fixed_fund'];
+    pickEnvironment(st, 0);
+    expect(st.bench).toHaveLength(1);
+    expect(charById(st.bench[0].charId).faction).toBe('express');
+    expect(charById(st.bench[0].charId).cost).toBe(1);
+    expect(st.inventory.length).toBe(inv0 + 1);
+    expect(st.environments).toEqual(['stock_express']);
+  });
+
+  it('增发货币：金额随位面 6/8/12', () => {
+    const st = newMatchPrep();
+    st.phase = 'environment';
+    st.environmentOffers = ['money_printing', 'stock_express', 'fixed_fund'];
+    st.gold = 0;
+    pickEnvironment(st, 0);
+    expect(st.gold).toBe(6);
+    st2Environment(st, 1);
+    pickEnvironment(st, 0);
+    expect(st.gold).toBe(14); // 位面二 +8
+  });
+
+  it('特邀专家随行增益并入 TeamFlags', () => {
+    const st = newMatchPrep();
+    st.environments = ['advisor_sangbo', 'advisor_blade'];
+    const flags = environmentTeamFlags(st);
+    expect(flags.dotAmp).toBeCloseTo(0.15);
+    expect(flags.atkPct).toBeCloseTo(0.08);
+    // 经 buildBattleInput 全链路生效
+    st.plane = 0;
+    st.node = 0;
+    st.board = [mkUnit('march7th', 1, { row: 'front', index: 0 })];
+    const input = buildBattleInput(st);
+    expect(input.teamFlags.dotAmp).toBeCloseTo(0.15);
+  });
+
+  it('进化算法：每次胜利叠层，flags 随层数增长', () => {
+    const st = newMatchPrep();
+    st.environments = ['evolution'];
+    st.environmentData.evolution = 2;
+    const flags = environmentTeamFlags(st);
+    expect(flags.atkPct).toBeCloseTo(0.06);
+    expect(flags.hpPct).toBeCloseTo(0.06);
+    expect(flags.dmgReduce).toBeCloseTo(0.04);
+  });
+
+  it('长期主义：4 次胜利各 +7 金后耗尽', () => {
+    const st = newMatchPrep();
+    st.environments = ['long_term'];
+    st.phase = 'environment';
+    st.environmentOffers = ['long_term', 'stock_express', 'fixed_fund'];
+    pickEnvironment(st, 0);
+    st.gold = 0;
+    for (let i = 0; i < 5; i++) {
+      st.plane = 0;
+      st.node = 0;
+      resolveBattle(st, true, 0, 10, 0, 0);
+      st.hp = 100;
+      st.winStreak = 0;
+    }
+    // 5 次胜利只吃 4 次 +7
+    expect(st.environmentData.long_term ?? 0).toBe(0);
+    expect(st.gold).toBeGreaterThanOrEqual(7 * 4);
+  });
+
+  it('深井角斗场：首次 5 连胜发宝钻', () => {
+    const st = newMatchPrep();
+    st.environments = ['deep_pit'];
+    st.winStreak = 4;
+    resolveBattle(st, true, 0, 10, 0, 0);
+    expect(st.wealthGem).toBe(true);
+  });
+
+  it('策略大师：按已有策略数返金', () => {
+    const st = newMatchPrep();
+    st.environments = ['strategy_master'];
+    st.strategies = ['lucky_dog', 'middle_class'];
+    st.phase = 'strategy';
+    st.strategyOffers = ['promo4', 'simple_mode', 'ootd'];
+    st.gold = 0;
+    pickStrategy(st, 0);
+    expect(st.gold).toBe(4); // 已有 2 条 → +4
+  });
+
+  it('固定理财：+2 免费刷新', () => {
+    const st = newMatchPrep();
+    st.phase = 'environment';
+    st.environmentOffers = ['fixed_fund', 'stock_express', 'money_printing'];
+    pickEnvironment(st, 0);
+    expect(st.freeRerolls).toBeGreaterThanOrEqual(2);
+  });
+
+  it('环境三选一摇档：只含合法 id', () => {
+    const offers = rollEnvironmentOffers();
+    expect(offers).toHaveLength(3);
+    for (const id of offers) expect(() => envById(id)).not.toThrow();
+  });
+
+  it('人身意外险：首领节点前送简易装备', () => {
+    const st = newMatchPrep();
+    st.environments = ['accident_insurance'];
+    st.plane = 0;
+    st.node = 3; // 位面一节点 4 = 战斗，下一节点 5 = 首领
+    const inv0 = st.inventory.length;
+    advanceNode(st); // node 4
+    advanceNode(st); // node 5 = boss → 送装备
+    expect(st.inventory.length).toBe(inv0 + 1);
+  });
+});
+
+/** 在位面 N 重开一次环境选择（测试辅助） */
+function st2Environment(st: MatchState, plane: number): void {
+  st.plane = plane;
+  st.phase = 'environment';
+  st.environmentOffers = ['money_printing', 'stock_express', 'fixed_fund'];
+}
