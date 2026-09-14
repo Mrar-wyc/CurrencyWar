@@ -57,6 +57,12 @@ export function simulateBattle(input: BattleInput): BattleResult {
     return Math.max(1, Math.round((input.enemyActionLimit * (wAlly + wEnemy)) / wEnemy));
   };
   let lastClock = budget();
+  // 敌人词缀（stages 节点配置，效果在引擎内判定）
+  const affixes = input.affixes ?? [];
+  const has = (id: string): boolean => affixes.includes(id);
+  if (has('tough_skin')) {
+    for (const e of enemies) e.unitFlags.dmgReduce += 0.3;
+  }
   let sp = Math.max(0, Math.min(input.spMax, input.spStart));
   const spMax = input.spMax;
   let ticks = 0;
@@ -95,6 +101,16 @@ export function simulateBattle(input: BattleInput): BattleResult {
     events.push({ t: 'act', uid, kind, name, sp, hits });
   };
 
+  /** 免死金牌：敌方致死伤害保留 10% 生命，每敌限一次。返回 true 表示被保住 */
+  function cheatDeathGuard(target: CombatUnit): boolean {
+    if (target.side !== 'enemy' || !has('undying')) return false;
+    const charges = (target.affixCharges ??= {});
+    if (charges.undying) return false;
+    charges.undying = 1;
+    target.hp = Math.max(1, Math.round(target.maxHp * 0.1));
+    return true;
+  }
+
   function applyDamage(target: CombatUnit, raw: number): HitInfo {
     let dmg = raw;
     const reduce = target.unitFlags.dmgReduce + (target.side === 'ally' ? tf.dmgReduce : 0);
@@ -108,8 +124,10 @@ export function simulateBattle(input: BattleInput): BattleResult {
     target.hp = Math.max(0, target.hp - Math.round(remain));
     let died = false;
     if (target.hp <= 0 && target.alive) {
-      target.alive = false;
-      died = true;
+      if (!cheatDeathGuard(target)) {
+        target.alive = false;
+        died = true;
+      }
     }
     return { uid: target.uid, dmg: Math.round(dmg), hpAfter: target.hp, shieldAfter: Math.round(target.shield), died };
   }
@@ -118,6 +136,12 @@ export function simulateBattle(input: BattleInput): BattleResult {
     if (killer && killer.side === 'ally' && killer.alive) {
       if (killer.unitFlags.onKillAtk > 0) killer.killStacks = Math.min(3, killer.killStacks + 1);
       if (killer.passive.type === 'killReset') extraActions.push(killer.uid);
+    }
+    // 复仇心切：非首领敌人阵亡时，其余敌人攻击 +8%（可叠加）
+    if (victim.side === 'enemy' && !victim.boss && has('vengeance')) {
+      for (const e of enemies) {
+        if (e.alive && e !== victim) e.buffs.push({ atkPct: 0.08, turns: 9999 });
+      }
     }
   }
 
@@ -132,10 +156,39 @@ export function simulateBattle(input: BattleInput): BattleResult {
       dmg *= caster.critDmg;
     }
     dmg *= 0.95 + rand() * 0.1;
+    // 软弱无力：未穿满 3 件装备的我方伤害 ×0.8
+    if (caster.side === 'ally' && has('weakness') && (caster.emptyEquipSlots ?? 0) > 0) {
+      dmg *= 0.8;
+    }
     const hit = applyDamage(target, dmg);
     hit.crit = crit;
     if (target.side === 'ally') {
       target.energy = Math.min(target.maxEnergy, target.energy + 10);
+      // 沉重脚步：我方受击后行动延后 8% 行动条
+      if (has('heavy_steps') && target.alive) {
+        target.nextActionAt += (AV / effSpd(target)) * 0.08;
+      }
+      // 额外打击：按受击者每个空装备栏附加 6% 生命上限的真伤（无视减伤与护盾）
+      if (has('extra_strike') && target.alive) {
+        const slots = target.emptyEquipSlots ?? 0;
+        if (slots > 0) {
+          target.hp = Math.max(0, target.hp - Math.round(target.maxHp * 0.06 * slots));
+          if (target.hp <= 0 && !cheatDeathGuard(target)) target.alive = false;
+        }
+      }
+    } else {
+      // 能量逃逸：敌人受击时攻击者能量 -4
+      if (has('energy_leak') && caster.side === 'ally' && caster.alive) {
+        caster.energy = Math.max(0, caster.energy - 4);
+      }
+      // 应激反应：敌人生命首次低于 50% 时行动提前 100%（每敌一次）
+      if (has('adrenaline') && target.alive && target.hp < target.maxHp * 0.5) {
+        const charges = (target.affixCharges ??= {});
+        if (!charges.adrenaline) {
+          charges.adrenaline = 1;
+          target.nextActionAt = Math.max(0, target.nextActionAt - AV / effSpd(target));
+        }
+      }
     }
     if (hit.died) onDeath(caster, target);
     // 荆棘反伤
@@ -300,6 +353,14 @@ export function simulateBattle(input: BattleInput): BattleResult {
         anyAllyHit = true;
       }
     }
+    // 灼热轰炸：敌方攻击附加灼烧（12% 受击者生命上限，3 回合，可叠加）
+    if (has('bombard')) {
+      for (const a of aliveOf('ally')) {
+        if (a.alive && hits.some(h => h.uid === a.uid)) {
+          a.dots.push({ kind: 'burn', dmg: Math.round(a.maxHp * 0.12), turns: 3 });
+        }
+      }
+    }
     pushAct(u.uid, 'enemy', mv.name, hits);
     // 克拉拉反击
     if (anyAllyHit && u.alive) {
@@ -318,7 +379,10 @@ export function simulateBattle(input: BattleInput): BattleResult {
       if (d.turns <= 0) continue;
       hits.push(applyDamage(u, d.dmg));
       d.turns--;
-      if (!u.alive) break;
+      if (!u.alive) {
+        onDeath(null, u);
+        break;
+      }
     }
     u.dots = u.dots.filter(d => d.turns > 0 && u.alive);
     return hits;

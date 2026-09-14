@@ -230,6 +230,10 @@ export interface CombatUnit {
   killStacks: number;
   /** 攻击叠层（onHitAtk，上限 5） */
   attackStacks: number;
+  /** 词缀一次性计数（免死金牌/应激反应），引擎懒初始化 */
+  affixCharges?: Record<string, number>;
+  /** 空装备栏数（软弱无力/额外打击），我方单位构建时注入 */
+  emptyEquipSlots?: number;
   nextActionAt: number;
   pos: number;
 }
@@ -273,6 +277,8 @@ export interface BattleNode {
   enemies: { id: string; mul: number; count?: number }[];
   /** 敌方行动上限（难度拨盘）：battle-build 换算为双方共享的行动值倒计时 */
   enemyActionLimit: number;
+  /** 敌人词缀（affixes.ts 的 id；位面二起出现） */
+  affixes?: string[];
 }
 
 export type StageNode =

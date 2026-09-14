@@ -65,6 +65,7 @@ export function buildAllyUnit(u: OwnedUnit, pos: number, tf: TeamFlags, extraUni
     shenjunStacks: c.passive.type === 'shenjun' ? c.passive.init : 0,
     killStacks: 0,
     attackStacks: 0,
+    emptyEquipSlots: Math.max(0, 3 - u.equips.length),
     nextActionAt: 0,
     pos
   };
@@ -105,6 +106,7 @@ export function buildBackerUnit(u: OwnedUnit, pos: number, tf: TeamFlags): Comba
     shenjunStacks: 0,
     killStacks: 0,
     attackStacks: 0,
+    emptyEquipSlots: Math.max(0, 3 - u.equips.length),
     nextActionAt: 0,
     pos,
     backend: true
@@ -165,6 +167,8 @@ export interface BattleInput {
   shieldPct: number;
   /** 敌方行动上限（难度拨盘）：引擎据此随存活编队动态换算行动值倒计时 */
   enemyActionLimit: number;
+  /** 敌人词缀 id 列表（引擎内判定效果；无词缀节点可省略） */
+  affixes?: string[];
   teamFlags: TeamFlags;
   /** 投资策略的战斗内修改器（当头一棒/风暴骑士） */
   strategyMods?: StrategyBattleMods;
@@ -212,6 +216,12 @@ export function buildBattleInput(st: MatchState): BattleInput {
     }
   }
   const spMax = 5 + tf.spMaxBonus;
+  // 决战在即（词缀）：首领倒计时 ×0.75、遭遇 ×1.2（官方 ±30/20 的比例化近似）
+  const nodeKind = PLANES[st.plane].nodes[st.node].kind;
+  let limit = battle.enemyActionLimit;
+  if (battle.affixes?.includes('showdown')) {
+    limit = Math.max(1, Math.round(limit * (nodeKind === 'boss' ? 0.75 : 1.2)));
+  }
   return {
     allies,
     backers,
@@ -219,7 +229,8 @@ export function buildBattleInput(st: MatchState): BattleInput {
     spStart: Math.min(spMax, 3 + tf.spStart),
     spMax,
     shieldPct: tf.startShieldPct,
-    enemyActionLimit: battle.enemyActionLimit,
+    enemyActionLimit: limit,
+    affixes: battle.affixes ?? [],
     teamFlags: tf,
     strategyMods: mods
   };
