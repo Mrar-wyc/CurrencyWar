@@ -1,4 +1,5 @@
 # 货币战争·零和博弈 — 单机自走棋（同人）
+##早期 React 版见 huobizhanzheng
 
 [![Android Build](https://github.com/Mrar-wyc/CurrencyWar/actions/workflows/android-build.yml/badge.svg)](https://github.com/Mrar-wyc/CurrencyWar/actions/workflows/android-build.yml)
 
