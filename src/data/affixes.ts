@@ -36,15 +36,15 @@ export const AFFIXES: AffixDef[] = [
   },
   {
     id: 'tough_skin', name: '皮糙肉厚', icon: '🛡️', color: '#5d8aa8',
-    desc: '全体敌人受到的伤害降低 30%', points: 10
+    desc: '全体敌人受到的伤害降低 20%', points: 10
   },
   {
     id: 'weakness', name: '软弱无力', icon: '💧', color: '#9fb8e8',
-    desc: '未穿满 3 件装备的我方角色伤害降低 20%', points: 10
+    desc: '未穿满 3 件装备的我方角色伤害降低 15%', points: 10
   },
   {
     id: 'extra_strike', name: '额外打击', icon: '🗡️', color: '#d35400',
-    desc: '敌方攻击按受击者每个空装备栏附加 6% 生命上限的真实伤害', points: 5
+    desc: '敌方攻击按受击者每个空装备栏附加 4% 生命上限的真实伤害', points: 5
   },
   {
     id: 'vengeance', name: '复仇心切', icon: '😤', color: '#b06ee0',

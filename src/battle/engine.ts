@@ -61,7 +61,7 @@ export function simulateBattle(input: BattleInput): BattleResult {
   const affixes = input.affixes ?? [];
   const has = (id: string): boolean => affixes.includes(id);
   if (has('tough_skin')) {
-    for (const e of enemies) e.unitFlags.dmgReduce += 0.3;
+    for (const e of enemies) e.unitFlags.dmgReduce += 0.2;
   }
   let sp = Math.max(0, Math.min(input.spMax, input.spStart));
   const spMax = input.spMax;
@@ -158,7 +158,7 @@ export function simulateBattle(input: BattleInput): BattleResult {
     dmg *= 0.95 + rand() * 0.1;
     // 软弱无力：未穿满 3 件装备的我方伤害 ×0.8
     if (caster.side === 'ally' && has('weakness') && (caster.emptyEquipSlots ?? 0) > 0) {
-      dmg *= 0.8;
+      dmg *= 0.85;
     }
     const hit = applyDamage(target, dmg);
     hit.crit = crit;
@@ -172,7 +172,7 @@ export function simulateBattle(input: BattleInput): BattleResult {
       if (has('extra_strike') && target.alive) {
         const slots = target.emptyEquipSlots ?? 0;
         if (slots > 0) {
-          target.hp = Math.max(0, target.hp - Math.round(target.maxHp * 0.06 * slots));
+          target.hp = Math.max(0, target.hp - Math.round(target.maxHp * 0.04 * slots));
           if (target.hp <= 0 && !cheatDeathGuard(target)) target.alive = false;
         }
       }

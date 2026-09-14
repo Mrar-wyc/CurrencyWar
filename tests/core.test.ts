@@ -849,7 +849,7 @@ describe('敌人词缀', () => {
     }
   });
 
-  it('皮糙肉厚：开战全体敌人减伤 +30%', () => {
+  it('皮糙肉厚：开战全体敌人减伤 +20%', () => {
     const e = mkEnemy('boss_p3', 0.4); // 高血首领，弱攻手打不死
     const res = simulateBattle({
       allies: [ally('seele', 1)], backers: [],
@@ -857,7 +857,7 @@ describe('敌人词缀', () => {
       spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 10,
       teamFlags: { ...EMPTY_TEAM_FLAGS }, affixes: ['tough_skin']
     });
-    expect(e.unitFlags.dmgReduce).toBeCloseTo(0.3);
+    expect(e.unitFlags.dmgReduce).toBeCloseTo(0.2);
     expect(res.win).toBe(false);
     expect(e.hp).toBeGreaterThan(0);
   });
