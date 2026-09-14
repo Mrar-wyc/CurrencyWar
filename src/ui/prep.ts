@@ -12,7 +12,7 @@ import { activeTraits, traitById } from '../logic/synergy';
 import { enemyById } from '../data/enemies';
 import type { OwnedUnit } from '../logic/types';
 import { COST_COLORS, h, starText, toast } from './dom';
-import { avatar, coinSvg, enemyMark, heartSvg, hexTrait, lockSvg, rerollSvg, swordSvg, xpSvg } from './icons';
+import { coinSvg, enemyMark, heartSvg, hexTrait, lockSvg, rerollSvg, swordSvg, xpSvg } from './icons';
 import type { AppCtx } from './ctx';
 
 const FACTION_SHORT: Record<string, string> = {
@@ -61,7 +61,6 @@ function unitCard(ctx: AppCtx, u: OwnedUnit, inBoard: boolean): HTMLElement {
       ctx.refresh();
     }
   },
-    avatar(c.color, c.cost, c.name.slice(0, 1), inBoard ? 40 : 30),
     h('div', { class: 'uc-name-row' },
       h('span', { class: 'uc-name' }, c.name),
       h('span', { class: 'uc-star', style: { color: COST_COLORS[c.cost] } }, starText(u.star))
@@ -91,15 +90,12 @@ function shopRow(ctx: AppCtx): HTMLElement {
         ctx.refresh();
       }
     },
-      h('div', { class: 'sc-avatar' }, avatar(c.color, c.cost, c.name.slice(0, 1), 38)),
-      h('div', { class: 'sc-body' },
-        h('div', { class: 'sc-head' },
-          h('span', { class: 'sc-name' }, c.name),
-          h('span', { class: 'sc-cost', style: { color: COST_COLORS[c.cost] } }, `${c.cost}`)
-        ),
-        h('div', { class: 'sc-tags' }, FACTION_SHORT[c.faction] ?? c.faction, ' / ', tagNames(c.tags)),
-        h('div', { class: 'sc-ult' }, c.ultimate.name)
-      )
+      h('div', { class: 'sc-head' },
+        h('span', { class: 'sc-name' }, c.name),
+        h('span', { class: 'sc-cost', style: { color: COST_COLORS[c.cost] } }, `${c.cost}`)
+      ),
+      h('div', { class: 'sc-tags' }, FACTION_SHORT[c.faction] ?? c.faction, ' / ', tagNames(c.tags)),
+      h('div', { class: 'sc-ult' }, c.ultimate.name)
     ));
   });
   return row;
