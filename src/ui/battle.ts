@@ -1,6 +1,6 @@
 import { simulateBattle } from '../battle/engine';
 import { BattleRenderer } from '../battle/renderer';
-import { PLANES } from '../data/stages';
+import { MATCH_CONFIG as CFG, PLANES } from '../data/stages';
 import type { BattleInput } from '../logic/battle-build';
 import { h } from './dom';
 import type { AppCtx } from './ctx';
@@ -50,7 +50,7 @@ export function renderBattle(root: HTMLElement, ctx: AppCtx, input: BattleInput)
         h('div', { class: 'result-sub' },
           win
             ? `用时：消耗 ${result.ticks} 行动值`
-            : `残余敌人 ${snapshot.enemies.filter(e => e.alive).length} 个 · 小队生命 -${node.kind === 'boss' ? 30 : 15}`
+            : `残余敌人 ${snapshot.enemies.filter(e => e.alive).length} 个 · 小队生命 -${node.kind === 'boss' ? CFG.loseHpBoss : CFG.loseHpNormal}`
         ),
         h('button', {
           class: 'big-btn',

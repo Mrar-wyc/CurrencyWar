@@ -181,7 +181,11 @@ export function boardFull(st: MatchState): boolean {
 
 export function placeUnit(st: MatchState, uid: string, row: 'front' | 'back', index: number): string | null {
   if (st.phase !== 'prep') return '当前不能调整站位';
-  if (row === 'front' && index >= CFG.frontSlots) return '前台位置不存在';
+  // 物理网格 6 前台；等级未解锁但网格内的位置按"位数不足"提示
+  if (row === 'front') {
+    if (index >= CFG.frontSlots) return '前台位置不存在';
+    if (index >= frontCapacity(st)) return '上阵位数不足，购买经验可提升';
+  }
   if (row === 'back' && index >= backCapacity(st)) return '后台位置不存在';
   const u = findUnit(st, uid);
   if (!u) return '找不到该角色';

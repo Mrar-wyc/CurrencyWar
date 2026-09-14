@@ -444,7 +444,7 @@ export function renderPrep(root: HTMLElement, ctx: AppCtx): void {
   const center = h('div', { class: 'prep-center' },
     h('div', { class: 'prep-head-row' },
       h('div', { class: 'prep-node-name' }, nodeName),
-      h('div', { class: 'count-pill' }, `上阵 ${st.board.length}/${frontCapacity(st) + backCapacity(st)}`)
+      h('div', { class: 'count-pill' }, `上阵 ${st.board.length}/${st.level}`)
     ),
     boardRows(ctx),
     shopRow(ctx),

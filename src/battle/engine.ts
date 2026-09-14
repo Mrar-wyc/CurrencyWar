@@ -158,7 +158,7 @@ export function simulateBattle(input: BattleInput): BattleResult {
       dmg *= caster.critDmg;
     }
     dmg *= 0.95 + rand() * 0.1;
-    // 软弱无力：未穿满 3 件装备的我方伤害 ×0.8
+    // 软弱无力：未穿满 3 件装备的我方伤害 ×0.85
     if (caster.side === 'ally' && has('weakness') && (caster.emptyEquipSlots ?? 0) > 0) {
       dmg *= 0.85;
     }

@@ -897,37 +897,23 @@ describe('敌人词缀', () => {
     expect(burnEvents.length).toBeGreaterThan(0);
   });
 
-  it('软弱无力：未穿满装备的我方伤害 ×0.8（对照）', () => {
-    const mk = () => {
-      const e = mkEnemy('swarm_wing', 0.05);
+  it('软弱无力：未穿满装备的我方伤害 ×0.85（对照）', () => {
+    const run = (affixes: string[]) => {
       const res = simulateBattle({
         allies: [ally('seele', 1)], backers: [],
-        enemies: [e],
-        spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 6,
-        teamFlags: { ...EMPTY_TEAM_FLAGS }, affixes: []
+        enemies: [mkEnemy('boss_p3', 3)], // 高血敌打不死：行动数确定，只比伤害总量
+        spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 5,
+        teamFlags: { ...EMPTY_TEAM_FLAGS }, affixes
       });
       return res.events.filter(ev => ev.t === 'act' && ev.kind !== 'enemy')
         .flatMap(ev => (ev.t === 'act' ? ev.hits : []))
         .filter(h => h.dmg !== undefined)
         .reduce((s, h) => s + (h.dmg ?? 0), 0);
     };
-    const base = mk();
-    const mkWeak = () => {
-      const e = mkEnemy('swarm_wing', 0.05);
-      const res = simulateBattle({
-        allies: [ally('seele', 1)], backers: [],
-        enemies: [e],
-        spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 6,
-        teamFlags: { ...EMPTY_TEAM_FLAGS }, affixes: ['weakness']
-      });
-      return res.events.filter(ev => ev.t === 'act' && ev.kind !== 'enemy')
-        .flatMap(ev => (ev.t === 'act' ? ev.hits : []))
-        .filter(h => h.dmg !== undefined)
-        .reduce((s, h) => s + (h.dmg ?? 0), 0);
-    };
-    const weak = mkWeak();
+    const base = run([]);
+    const weak = run(['weakness']);
     expect(base).toBeGreaterThan(0);
-    expect(weak).toBeLessThan(base * 1.05);
+    expect(weak).toBeLessThan(base * 0.93);
   });
 
   it('沉重脚步：我方受击后行动延后（事件顺序扰动）', () => {

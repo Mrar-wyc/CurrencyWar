@@ -208,8 +208,8 @@ export class BattleRenderer {
     }
   }
 
-  /** 立即应用事件内的所有效果（跳过模式或事件播完兜底） */
-  private applyEventFully(ev: BattleEvent): void {
+  /** 立即应用事件内的效果（跳过模式全量；事件播完兜底只补未应用部分，防飘字重复） */
+  private applyEventFully(ev: BattleEvent, fromIdx = 0): void {
     if (ev.t === 'start') {
       this.sp = ev.sp;
       this.spMax = ev.spMax;
@@ -223,8 +223,15 @@ export class BattleRenderer {
     if (ev.t === 'act') {
       this.sp = ev.sp;
       const caster = this.byUid.get(ev.uid);
-      for (const h of ev.hits) {
-        this.applyHit(h, caster, true);
+      for (let i = fromIdx; i < ev.hits.length; i++) {
+        this.applyHit(ev.hits[i], caster, true, ev.kind === 'dot');
+      }
+      // 能量视图近似同步（事件末态）：终结技清零、战技+30、普攻+20、追击+10
+      if (caster && caster.maxEnergy > 0) {
+        if (ev.kind === 'ult') caster.energy = 0;
+        else if (ev.kind === 'skill') caster.energy = Math.min(caster.maxEnergy, caster.energy + 30);
+        else if (ev.kind === 'basic') caster.energy = Math.min(caster.maxEnergy, caster.energy + 20);
+        else if (ev.kind === 'followup') caster.energy = Math.min(caster.maxEnergy, caster.energy + 10);
       }
       return;
     }
@@ -235,7 +242,7 @@ export class BattleRenderer {
     }
   }
 
-  private applyHit(h: HitInfo, caster: UnitView | undefined, instant: boolean): void {
+  private applyHit(h: HitInfo, caster: UnitView | undefined, instant: boolean, dotTick = false): void {
     const v = this.byUid.get(h.uid);
     if (!v) return;
     if (h.dmg !== undefined) {
@@ -259,7 +266,11 @@ export class BattleRenderer {
       if (instant) this.addFloater(v, `盾+${Math.round(h.shield)}`, '#7db8e8');
     }
     if (h.dot) {
+      v.dots = Math.min(9, v.dots + 1);
       if (instant) this.addFloater(v, h.dot.kind === 'shock' ? '⚡触电' : '🔥灼烧', '#c9a0ff');
+    }
+    if (dotTick && h.dmg !== undefined) {
+      v.dots = Math.max(0, v.dots - 1);
     }
     if (h.died) {
       v.alive = false;
@@ -290,7 +301,7 @@ export class BattleRenderer {
         }
       }
       if (this.evElapsed >= this.evDur) {
-        this.applyEventFully(ev);
+        this.applyEventFully(ev, this.evApplied);
         this.enterEvent(this.evIdx + 1);
       }
     }
