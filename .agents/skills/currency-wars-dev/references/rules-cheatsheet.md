@@ -58,5 +58,11 @@
 - 财富宝钻：`wealthGem`（resolveBattle 首个 boss 胜利发放）；后台容量统一走 `backCapacity(st)`
 - flags 走 mergeEquips 动态管线：UnitFlags 键白名单 → 否则落 TeamFlags（如 critRate/backPowerPct/followupChance 全队生效）
 
+## 敌人词缀 ✅ 已实装 10 条（v0.2⑦，官方 ~45 条）
+- 数据：`src/data/affixes.ts` AffixDef（id/名称/图标/颜色/描述/点数 5/10/15 三档）；节点经 BattleNode.affixes 引用，经 BattleInput.affixes 进引擎，引擎内按 id 判定（simulateBattle 可直测）
+- 效果锚点：沉重脚步/额外打击/能量逃逸/应激反应在 dealDamage；免死在 applyDamage 致死拦截（affixCharges 计数）；灼热在 enemyAct 后 push dots；皮糙开战改 unitFlags.dmgReduce；复仇在 onDeath（dot 击杀已补口）；软弱读 emptyEquipSlots；决战在 battle-build 调 enemyActionLimit
+- 难度展示：位面基础 0/10/20 + 词缀点 + 金策略 3/条（prep 情报面板，§23 近似展示层）
+- 平衡：纯数值词缀先小（20% 级），机制型词缀先例见调参历史
+
 ## 官方待实装体系（做对应路线项时查 content-library.md）
-星徽 22 枚全集（现 10）⬜、特权装备 ⬜、冶金炉合成 ⬜、投资环境 84 ⬜、对手公司 20 ⬜、词缀 ~45 ⬜（⑦，含倒计时类：决战在即/时间刺客）、超频模式 ⬜、4★ ⬜、固定预算倒计时（官方口径）⬜
+星徽 22 枚全集（现 10）⬜、特权装备 ⬜、冶金炉合成 ⬜、投资环境 84 ⬜、对手公司 20 ⬜、词缀 +35 条（现 10/45）⬜、超频模式 ⬜、4★ ⬜、固定预算倒计时（官方口径）⬜

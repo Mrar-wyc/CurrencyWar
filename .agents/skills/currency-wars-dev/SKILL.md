@@ -8,12 +8,12 @@ description: 崩铁「货币战争·零和博弈」单机自走棋项目的专�
 崩坏：星穹铁道「货币战争·零和博弈」玩法的单机自走棋同人复刻（安卓 APK）。
 技术栈：Vite + TypeScript + Canvas 2D（零运行时依赖）+ Capacitor 7；vitest 单测；GitHub Actions 云端打包。
 
-## 当前状态（v0.2 路线①~⑥已完成，勿重做）
+## 当前状态（v0.2 路线①~⑦已完成，勿重做）
 
 - ✅ ①商店概率表+Lv10（`4130e36`）　✅ ②后台自动施技（`f52bb81`）　✅ ③投资策略三选一（`d9b98f2`）
-- ✅ ④角色池 24 名+官方费用校准（`af304c4`）　✅ ⑤星徽 10 枚+装备池 41+财富宝钻（`b6f50d7`~`acb2361`）　✅ ⑥行动值倒计时（`83553cb`）
-- 现有内容：24 角色（含专属后台赋能）/ 10 羁绊（7 条扩档）/ 41 装备（简易 8+进阶 23+星徽 10）/ 20 策略 / 22 节点 / 财富宝钻 / 行动值倒计时战斗制
-- ⬜ 待做：⑦词缀难度 → ⑧超频等
+- ✅ ④角色池 24 名+官方费用校准（`af304c4`）　✅ ⑤星徽 10 枚+装备池 41+财富宝钻（`b6f50d7`~`acb2361`）　✅ ⑥行动值倒计时（`83553cb`）　✅ ⑦词缀难度 10 条（`80f96ee`~`4da29d7`）
+- 现有内容：24 角色（含专属后台赋能）/ 10 羁绊（7 条扩档）/ 41 装备（简易 8+进阶 23+星徽 10）/ 20 策略 / 22 节点 / 财富宝钻 / 行动值倒计时战斗制 / 敌人词缀 10 条
+- ⬜ 待做：⑧超频模式/投资环境/对手公司/专家顾问
 - 详情：`docs/开发进度.md`（进度快照、**数值近似清单**、调参记录、复查清单）
 
 ## 第一步：按任务类型读取参考文件
@@ -32,13 +32,13 @@ description: 崩铁「货币战争·零和博弈」单机自走棋项目的专�
 ## 项目结构与铁律
 
 ```
-src/data/     内容数据表：characters(角色+后台赋能) traits equipment enemies stages(节点/经济/概率) strategies(策略)
+src/data/     内容数据表：characters(角色+后台赋能) traits equipment enemies affixes(词缀) stages(节点/经济/概率) strategies(策略)
 src/logic/    纯函数：types(领域类型) shop synergy strategy(策略效果分流) battle-build(战前编译)
 src/battle/   engine.ts(无头模拟,产出事件流) + renderer.ts(Canvas 回放)——逻辑与表现分离
 src/game/     match.ts(对局状态机) + save.ts(存档,migrateMatch 迁移与脏数据防御)
 src/ui/       menu/prep/battle/strategy/overlays/codex/help + icons.ts(内联SVG图标库)——禁止在此写游戏规则；主题 token 在 src/style.css :root
 docs/         官方规则详解（规则权威）+ 开发进度（进度/近似清单/调参记录/UI设计规范§九）
-tests/        core(59项) + balance(40局) + soak(300局不变量) + diag(单局诊断) + bot.ts(自动对局)
+tests/        core(70项) + balance(40局) + soak(300局不变量) + diag(单局诊断) + bot.ts(自动对局)
 android/      Capacitor 工程；tools/ 本机 JDK21+SDK（env.sh）；.github/workflows 云端打包
 ```
 
@@ -48,7 +48,7 @@ android/      Capacitor 工程；tools/ 本机 JDK21+SDK（env.sh）；.github/w
 2. **逻辑可测**：经济/商店/升星/羁绊/战斗全部纯函数；改规则必须同步补/改 `tests/core.test.ts` 并跑全量测试。
 3. **战斗逻辑与表现分离**：引擎只产出 `BattleEvent[]`，渲染器消费事件回放；新演出加在 renderer。
 4. **规则以 docs/官方规则详解.md 为准**：官方未公开数值标注 ⚠️ 近似并登记开发进度.md，不要臆造"官方数值"。
-5. **改玩法必跑平衡回归**：`[balance]` 胜率断言带 15%~98%（⑥后实测 68%~80%）；大幅给玩家加成的新系统必须配对冲的难度机制（先例：金策略自动 +4% 敌属性）。
+5. **改玩法必跑平衡回归**：`[balance]` 胜率断言带 15%~98%（⑦词缀后实测 40%~60%）；大幅给玩家加成的新系统必须配对冲的难度机制（先例：金策略自动 +4% 敌属性）。
 6. **动存档必测旧档迁移**：MatchState 加新字段要在 `save.ts` migrateMatch 补迁移，并按 references/balance-and-testing.md 的方法实测。
 
 ## 设计红线（来自用户反馈，勿回退）
