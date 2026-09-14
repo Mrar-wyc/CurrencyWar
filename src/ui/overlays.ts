@@ -80,6 +80,7 @@ export function renderVictory(root: HTMLElement, ctx: AppCtx, s: FinishSummary):
       h('div', { class: 'overlay-title win' }, '🎉 通关胜利'),
       h('div', { class: 'overlay-sub' }, `剩余小队生命 ${s.hp}`),
       h('div', { class: 'rank-gain' },
+        s.overclock ? h('div', { class: 'hint', style: { color: '#c77dff', fontWeight: 900 } }, '⚡ 超频模式通关 · 晋升 +1') : null,
         s.rankGain > 0
           ? `职级晋升 +${s.rankGain}：${RANKS[Math.max(0, s.newRank - s.rankGain)]} → ${RANKS[s.newRank]}`
           : `当前职级：${RANKS[s.newRank]}`

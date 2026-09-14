@@ -8,7 +8,7 @@ import { environmentTeamFlags, hasEnvironment, rollEnvironmentOffers } from '../
 import type { BattleInput } from '../logic/battle-build';
 import type { MatchState, OwnedUnit, PendingReward } from '../logic/types';
 
-export function newMatch(): MatchState {
+export function newMatch(overclock = false): MatchState {
   const st: MatchState = {
     phase: 'prep',
     plane: 0,
@@ -36,6 +36,7 @@ export function newMatch(): MatchState {
     environments: [],
     environmentOffers: [],
     environmentData: {},
+    overclock,
     freeRerolls: 0,
     freeBuys: 0,
     wealthGem: false,

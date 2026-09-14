@@ -13,7 +13,7 @@ export const PLANES: PlaneDef[] = [
       {
         kind: 'battle',
         battle: {
-          name: '遭遇战 · 蚁群', enemyActionLimit: 14,
+          name: '遭遇战 · 蚁群', enemyActionLimit: 14, company: '虫人兵器',
           enemies: [{ id: 'swarm_wing', mul: 0.9, count: 2 }, { id: 'swarm_node', mul: 0.9 }]
         }
       },
@@ -22,7 +22,7 @@ export const PLANES: PlaneDef[] = [
       {
         kind: 'battle',
         battle: {
-          name: '遭遇战 · 蚁群巢穴', enemyActionLimit: 14,
+          name: '遭遇战 · 蚁群巢穴', enemyActionLimit: 14, company: '虫人兵器',
           enemies: [{ id: 'swarm_node', mul: 1.0, count: 2 }, { id: 'mara_soldier', mul: 1.0 }]
         }
       },
@@ -30,7 +30,7 @@ export const PLANES: PlaneDef[] = [
       {
         kind: 'boss',
         battle: {
-          name: '首领 · 蚕食者·不完全体', enemyActionLimit: 18,
+          name: '首领 · 蚕食者·不完全体', enemyActionLimit: 18, company: '巨鹿生物制药',
           enemies: [{ id: 'swarm_wing', mul: 1.0, count: 2 }, { id: 'boss_p1', mul: 1.0 }]
         }
       }
@@ -42,7 +42,7 @@ export const PLANES: PlaneDef[] = [
       {
         kind: 'battle',
         battle: {
-          name: '遭遇战 · 魔阴身巡逻队', enemyActionLimit: 14, affixes: ['energy_leak'],
+          name: '遭遇战 · 魔阴身巡逻队', enemyActionLimit: 14, affixes: ['energy_leak'], company: '灰手生命科技',
           enemies: [{ id: 'mara_soldier', mul: 1.9, count: 2 }, { id: 'mara_archer', mul: 1.9, count: 2 }]
         }
       },
@@ -51,14 +51,14 @@ export const PLANES: PlaneDef[] = [
       {
         kind: 'battle',
         battle: {
-          name: '遭遇战 · 机兵哨站', enemyActionLimit: 14, affixes: ['extra_strike'],
+          name: '遭遇战 · 机兵哨站', enemyActionLimit: 14, affixes: ['extra_strike'], company: '深穹智械科技',
           enemies: [{ id: 'automaton_bear', mul: 1.9 }, { id: 'automaton_drill', mul: 1.9, count: 2 }]
         }
       },
       {
         kind: 'battle',
         battle: {
-          name: '遭遇战 · 虚卒先锋', enemyActionLimit: 14, affixes: ['vengeance'],
+          name: '遭遇战 · 虚卒先锋', enemyActionLimit: 14, affixes: ['vengeance'], company: '凛冬经贸联合体',
           enemies: [{ id: 'voidranger', mul: 1.9, count: 2 }, { id: 'mara_archer', mul: 1.9, count: 2 }]
         }
       },
@@ -67,7 +67,7 @@ export const PLANES: PlaneDef[] = [
       {
         kind: 'boss',
         battle: {
-          name: '首领 · 可可利亚，虚妄之母', enemyActionLimit: 18, affixes: ['tough_skin', 'showdown'],
+          name: '首领 · 可可利亚，虚妄之母', enemyActionLimit: 18, affixes: ['tough_skin', 'showdown'], company: '铁盾安保集团',
           enemies: [{ id: 'automaton_drill', mul: 1.9, count: 2 }, { id: 'boss_p2', mul: 1.15 }]
         }
       }
@@ -79,7 +79,7 @@ export const PLANES: PlaneDef[] = [
       {
         kind: 'battle',
         battle: {
-          name: '遭遇战 · 虚卒军团', enemyActionLimit: 14, affixes: ['adrenaline'],
+          name: '遭遇战 · 虚卒军团', enemyActionLimit: 14, affixes: ['adrenaline'], company: '纷争前线军团',
           enemies: [{ id: 'voidranger', mul: 2.9, count: 2 }, { id: 'automaton_bear', mul: 2.9 }]
         }
       },
@@ -88,7 +88,7 @@ export const PLANES: PlaneDef[] = [
       {
         kind: 'battle',
         battle: {
-          name: '遭遇战 · 蚕食者之群', enemyActionLimit: 14, affixes: ['bombard'],
+          name: '遭遇战 · 蚕食者之群', enemyActionLimit: 14, affixes: ['bombard'], company: '增熵能源集团',
           enemies: [{ id: 'spawn', mul: 2.9, count: 2 }, { id: 'mara_soldier', mul: 2.9, count: 2 }]
         }
       },
@@ -97,14 +97,14 @@ export const PLANES: PlaneDef[] = [
       {
         kind: 'battle',
         battle: {
-          name: '遭遇战 · 精锐突击', enemyActionLimit: 14, affixes: ['heavy_steps', 'weakness'],
+          name: '遭遇战 · 精锐突击', enemyActionLimit: 14, affixes: ['heavy_steps', 'weakness'], company: '猎星资本',
           enemies: [{ id: 'spawn', mul: 3.1 }, { id: 'voidranger', mul: 3.1, count: 2 }, { id: 'automaton_bear', mul: 3.1 }]
         }
       },
       {
         kind: 'boss',
         battle: {
-          name: '首领 · 末日兽', enemyActionLimit: 20, affixes: ['undying'],
+          name: '首领 · 末日兽', enemyActionLimit: 20, affixes: ['undying'], company: '不死者联盟',
           enemies: [{ id: 'spawn', mul: 2.0, count: 2 }, { id: 'boss_p3', mul: 1.0 }]
         }
       }

@@ -445,7 +445,7 @@ describe('战斗引擎', () => {
     const res = simulateBattle({
       allies: [ally('march7th')],
       backers: [],
-      enemies: [mkEnemy('automaton_bear', 3)],
+      enemies: [mkEnemy('boss_p3', 0.2)], // 打不死也杀不死我方：恰在预算点耗尽
       spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 3,
       teamFlags: { ...EMPTY_TEAM_FLAGS }
     });
@@ -1041,7 +1041,7 @@ describe('存档迁移与防御', () => {
     expect(st.plane).toBe(0);
     expect(st.node).toBe(0);
 
-    const data: SaveData = { rank: 1, totalWins: 1, totalRuns: 2, bestStreak: 1, totalThreeStars: 0, current: newMatch() };
+    const data: SaveData = { rank: 1, totalWins: 1, totalRuns: 2, bestStreak: 1, totalThreeStars: 0, overclockUnlocked: false, overclockEnabled: false, overclockWins: 0, current: newMatch() };
     data.current!.phase = 'gameOver';
     persistMatch(data, data.current!);
     // persistMatch 对终局清空 current
@@ -1056,7 +1056,7 @@ describe('存档迁移与防御', () => {
     const st = newMatchPrep();
     st.phase = 'reward';
     st.rewards = [{ kind: 'equip', equipId: 'b_atk' }];
-    const data: SaveData = { rank: 0, totalWins: 0, totalRuns: 0, bestStreak: 0, totalThreeStars: 0, current: null };
+    const data: SaveData = { rank: 0, totalWins: 0, totalRuns: 0, bestStreak: 0, totalThreeStars: 0, overclockUnlocked: false, overclockEnabled: false, overclockWins: 0, current: null };
     persistMatch(data, st);
     __lsStore.set('currencywars_save_v1', JSON.stringify(data));
     const loaded = loadSave();

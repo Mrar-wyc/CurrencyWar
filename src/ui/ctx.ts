@@ -17,6 +17,7 @@ export interface FinishSummary {
   losses: number;
   bestStreak: number;
   threeStars: number;
+  overclock: boolean;
 }
 
 export interface AppCtx {

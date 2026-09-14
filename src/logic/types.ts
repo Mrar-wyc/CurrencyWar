@@ -281,6 +281,8 @@ export interface BattleNode {
   enemyActionLimit: number;
   /** 敌人词缀（affixes.ts 的 id；位面二起出现） */
   affixes?: string[];
+  /** 对手公司名（风味层，官方 §31 二十家） */
+  company?: string;
 }
 
 export type StageNode =
@@ -351,6 +353,8 @@ export interface MatchState {
   environmentOffers: string[];
   /** 环境计数器（进化算法层数 / 长期主义剩余胜场等） */
   environmentData: Record<string, number>;
+  /** 超频模式对局（高难：敌 +25%/倒计时×0.85/词缀全挂；晋升 +1） */
+  overclock: boolean;
   /** 免费刷新次数（策略/环境发放，reroll 优先消耗） */
   freeRerolls: number;
   /** 免费购买次数（策略发放，buyShop 优先消耗） */

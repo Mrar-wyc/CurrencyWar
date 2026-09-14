@@ -25,13 +25,23 @@ function rollCost(level: number): number {
 }
 
 /** 按概率摇一个费用，并从该费用中有剩余复制的角色里随机取一个 */
-function pickChar(level: number, pool: Record<string, number>, used: Set<string>): string | null {
+function pickChar(level: number, pool: Record<string, number>, used: Set<string>, factionBias?: string): string | null {
   // 依次尝试：概率费用 → 逐级回退到 1 费
   let cost = rollCost(level);
   const fallbacks = [cost, 4, 3, 2, 1];
   for (const c of fallbacks) {
     const candidates = CHARACTERS.filter(x => x.cost === c && (pool[x.id] ?? 0) > 0 && !used.has(x.id));
     if (candidates.length > 0) {
+      // 概念股阵营加权：bias 阵营角色权重 ×2.5
+      if (factionBias) {
+        const weights = candidates.map(x => (x.faction === factionBias ? 2.5 : 1));
+        const total = weights.reduce((a, b) => a + b, 0);
+        let roll = Math.random() * total;
+        for (let i = 0; i < candidates.length; i++) {
+          roll -= weights[i];
+          if (roll <= 0) return candidates[i].id;
+        }
+      }
       const picked = candidates[randInt(candidates.length)];
       return picked.id;
     }
@@ -40,11 +50,11 @@ function pickChar(level: number, pool: Record<string, number>, used: Set<string>
 }
 
 /** 摇一屏商店（从牌池取出复制） */
-export function rollShop(level: number, pool: Record<string, number>): ShopOffer[] {
+export function rollShop(level: number, pool: Record<string, number>, factionBias?: string): ShopOffer[] {
   const offers: ShopOffer[] = [];
   const used = new Set<string>();
   for (let i = 0; i < 5; i++) {
-    const id = pickChar(level, pool, used);
+    const id = pickChar(level, pool, used, factionBias);
     if (!id) {
       offers.push({ charId: null });
       continue;

@@ -78,7 +78,7 @@ const ctx: AppCtx = {
     render();
   },
   newGame: () => {
-    st = newMatch();
+    st = newMatch(save.overclockEnabled === true);
     screen = 'game';
     uiState.finishSummary = null;
     uiState.sel = null;
@@ -142,7 +142,8 @@ function render(): void {
       wins: st.battlesWon,
       losses: st.battlesLost,
       bestStreak: st.bestWinStreak,
-      threeStars: st.threeStarsMade
+      threeStars: st.threeStarsMade,
+      overclock: st.overclock === true
     };
   }
   const summary = uiState.finishSummary;

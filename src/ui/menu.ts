@@ -20,7 +20,15 @@ export function renderMenu(root: HTMLElement, ctx: AppCtx): void {
           hasCurrent
             ? h('button', { class: 'big-btn primary', onclick: () => ctx.resume() }, '▶ 继续对局')
             : null,
-          h('button', { class: 'big-btn', onclick: () => ctx.newGame() }, hasCurrent ? '新的一局' : '▶ 开始对局'),
+          h('button', { class: 'big-btn', onclick: () => ctx.newGame() },
+            hasCurrent ? '新的一局' : '▶ 开始对局',
+            save.overclockEnabled ? ' ⚡' : ''),
+          save.overclockUnlocked
+            ? h('button', {
+                class: `mid-btn ${save.overclockEnabled ? 'on' : ''}`,
+                onclick: () => { save.overclockEnabled = !save.overclockEnabled; ctx.refresh(); }
+              }, save.overclockEnabled ? '⚡ 超频：开' : '⚡ 超频：关')
+            : null,
           h('div', { class: 'menu-row' },
             h('button', { class: 'mid-btn', onclick: () => ctx.showCodex() }, '📖 图鉴'),
             h('button', { class: 'mid-btn', onclick: () => ctx.showHelp() }, '❓ 玩法说明')

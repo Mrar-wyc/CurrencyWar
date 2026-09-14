@@ -13,11 +13,17 @@ export interface SaveData {
   totalRuns: number;
   bestStreak: number;
   totalThreeStars: number;
+  /** 通关过任意一局即解锁超频模式 */
+  overclockUnlocked: boolean;
+  /** 菜单里的超频开关 */
+  overclockEnabled: boolean;
+  /** 超频通关次数 */
+  overclockWins: number;
   current: MatchState | null;
 }
 
 export function defaultSave(): SaveData {
-  return { rank: 0, totalWins: 0, totalRuns: 0, bestStreak: 0, totalThreeStars: 0, current: null };
+  return { rank: 0, totalWins: 0, totalRuns: 0, bestStreak: 0, totalThreeStars: 0, overclockUnlocked: false, overclockEnabled: false, overclockWins: 0, current: null };
 }
 
 export function loadSave(): SaveData {
@@ -134,9 +140,11 @@ export function persistMatch(save: SaveData, st: MatchState): void {
 export function finishMatch(save: SaveData, st: MatchState): { rankGain: number; newRank: number } {
   let gain = 0;
   if (st.phase === 'victory') {
-    gain = CFG.rankGain(st.hp);
+    gain = CFG.rankGain(st.hp) + (st.overclock ? 1 : 0);
     save.rank = Math.min(8, save.rank + gain);
     save.totalWins++;
+    save.overclockUnlocked = true;
+    if (st.overclock) save.overclockWins++;
   }
   save.totalRuns++;
   save.bestStreak = Math.max(save.bestStreak, st.bestWinStreak);

@@ -5,6 +5,7 @@ import { PLANES } from '../data/stages';
 import { computeTeamFlags } from './synergy';
 import { cashShieldPct, strategyBattleMods, strategyEnemyMult, strategyTeamFlags, strategyUnitMods, type StrategyBattleMods } from './strategy';
 import { environmentTeamFlags } from './environment';
+import { AFFIXES } from '../data/affixes';
 import { EMPTY_UNIT_FLAGS } from './types';
 import type { BattleNode, CombatUnit, MatchState, OwnedUnit, TeamFlags, UnitFlags } from './types';
 
@@ -207,8 +208,8 @@ export function buildBattleInput(st: MatchState): BattleInput {
   // 风暴骑士：前台 1 号位加速
   const mods = strategyBattleMods(st);
   if (mods.firstSelfHarmPct && allies.length) allies[0].spd = Math.round(allies[0].spd * 2.5);
-  // 敌人乘策略系数（难度削减 / 伟大征服）
-  const enemyMult = strategyEnemyMult(st);
+  // 敌人乘策略系数（难度削减 / 伟大征服）与超频系数
+  const enemyMult = strategyEnemyMult(st) * (st.overclock ? 1.25 : 1);
   const enemies = buildEnemies(battle);
   if (enemyMult !== 1) {
     for (const e of enemies) {
@@ -220,10 +221,13 @@ export function buildBattleInput(st: MatchState): BattleInput {
   const spMax = 5 + tf.spMaxBonus;
   // 决战在即（词缀）：首领倒计时 ×0.75、遭遇 ×1.2（官方 ±30/20 的比例化近似）
   const nodeKind = PLANES[st.plane].nodes[st.node].kind;
-  let limit = battle.enemyActionLimit;
-  if (battle.affixes?.includes('showdown')) {
+  // 超频：全部词缀生效 + 倒计时 ×0.85
+  const affixes = st.overclock ? [...(battle.affixes ?? []), ...AFFIXES.map(a => a.id).filter(id => !(battle.affixes ?? []).includes(id))] : (battle.affixes ?? []);
+  let limit = battle.enemyActionLimit * (st.overclock ? 0.85 : 1);
+  if (affixes.includes('showdown')) {
     limit = Math.max(1, Math.round(limit * (nodeKind === 'boss' ? 0.75 : 1.2)));
   }
+  limit = Math.max(1, Math.round(limit));
   return {
     allies,
     backers,
@@ -232,7 +236,7 @@ export function buildBattleInput(st: MatchState): BattleInput {
     spMax,
     shieldPct: tf.startShieldPct,
     enemyActionLimit: limit,
-    affixes: battle.affixes ?? [],
+    affixes,
     teamFlags: tf,
     strategyMods: mods
   };

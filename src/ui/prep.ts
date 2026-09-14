@@ -347,7 +347,10 @@ function intelPanel(ctx: AppCtx): HTMLElement {
     for (const e of b.enemies) counts.set(e.id, (counts.get(e.id) ?? 0) + (e.count ?? 1));
     panel.append(h('div', { class: 'intel-node' },
       enemyMark(node.kind === 'boss', node.kind === 'boss' ? '#ffd166' : '#ff9d9d', 18),
-      `${node.kind === 'boss' ? '首领战 · ' : ''}${b.name}`));
+      `${st.overclock ? '⚡ ' : ''}${node.kind === 'boss' ? '首领战 · ' : ''}${b.name}`));
+    if (b.company) {
+      panel.append(h('div', { class: 'hint' }, `🏢 对手公司：${b.company}`));
+    }
     for (const [id, n] of counts) {
       const e = enemyById(id);
       panel.append(h('div', { class: 'intel-enemy' },
