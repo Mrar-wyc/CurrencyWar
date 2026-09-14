@@ -16,7 +16,7 @@ import { activeTraits, computeTeamFlags, traitById } from '../src/logic/synergy'
 import { rerollCostOf, rollStrategyOffers, strategyEnemyMult, strategyTeamFlags, strategyUnitMods } from '../src/logic/strategy';
 import { strategyById } from '../src/data/strategies';
 import { EMPTY_TEAM_FLAGS } from '../src/logic/types';
-import { finishMatch, loadSave, migrateMatch, persistMatch, type SaveData } from '../src/game/save';
+import { defaultSave, finishMatch, loadSave, migrateMatch, persistMatch, type SaveData } from '../src/game/save';
 import { strategyBattleMods } from '../src/logic/strategy';
 import { ENVIRONMENTS, envById } from '../src/data/environments';
 import { rollShop } from '../src/logic/shop';
@@ -53,6 +53,21 @@ function mkEnemy(id: string, mul = 1): CombatUnit {
     }, shenjunStacks: 0, killStacks: 0,
       attackStacks: 0, nextActionAt: 0, pos: 0
   };
+}
+
+/**
+ * 定序随机对照：用固定序列替换 Math.random（值恒 ≥0.3，不触发 5% 暴击），
+ * 使两次战斗的摇档/暴击完全一致，从而对词缀效果做精确数值对照而非随机基线比较。
+ */
+function withFixedRandom<T>(fn: () => T): T {
+  const seq = Array.from({ length: 4000 }, (_, k) => 0.3 + (k % 7) * 0.1);
+  let cursor = 0;
+  const spy = vi.spyOn(Math, 'random').mockImplementation(() => seq[cursor++ % seq.length]);
+  try {
+    return fn();
+  } finally {
+    spy.mockRestore();
+  }
 }
 
 describe('商店与购买', () => {
@@ -877,26 +892,41 @@ describe('敌人词缀', () => {
   });
 
   it('免死金牌：致死伤害保留 10% 血，每敌限一次', () => {
-    const e = mkEnemy('swarm_wing', 0.15); // 低血量确保能被打到致死
-    const res = simulateBattle({
-      allies: [ally('seele', 3)], backers: [],
-      enemies: [e],
-      spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 60,
-      teamFlags: { ...EMPTY_TEAM_FLAGS }, affixes: ['undying']
+    // 定序随机对照：无词缀直接击杀（不消耗次数）；有词缀恰好消耗 1 次、随后被补刀
+    const run = (affixes: string[]) => withFixedRandom(() => {
+      const e = mkEnemy('swarm_wing', 0.15); // 低血量确保能被打到致死
+      const res = simulateBattle({
+        allies: [ally('seele', 3)], backers: [],
+        enemies: [e],
+        spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 60,
+        teamFlags: { ...EMPTY_TEAM_FLAGS }, affixes
+      });
+      return { e, res };
     });
-    // 免死触发过（或直接被击杀）；触发过则最终必胜（保留 10% 后会被补刀）
-    expect(e.affixCharges?.undying === 1 || res.win).toBe(true);
+    const control = run([]);
+    expect(control.e.affixCharges?.undying ?? 0).toBe(0); // 无词缀不消耗次数
+    const { e, res } = run(['undying']);
+    expect(e.affixCharges?.undying).toBe(1); // 恰好触发一次（每敌限一次）
+    expect(res.win).toBe(true); // 保留 10% 后被打完
   });
 
   it('应激反应：敌人首次低于 50% 血行动提前', () => {
-    const e = mkEnemy('swarm_wing', 0.3);
-    const res = simulateBattle({
-      allies: [ally('seele', 1)], backers: [],
-      enemies: [e],
-      spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 30,
-      teamFlags: { ...EMPTY_TEAM_FLAGS }, affixes: ['adrenaline']
+    // 同序列对照（长局：16→17 次敌方出手），唯一变量是词缀，出手次数差异即"行动提前"的量化结果
+    const run = (affixes: string[]) => withFixedRandom(() => {
+      const e = mkEnemy('automaton_bear', 1);
+      const res = simulateBattle({
+        allies: [ally('march7th', 1)], backers: [],
+        enemies: [e],
+        spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 30,
+        teamFlags: { ...EMPTY_TEAM_FLAGS }, affixes
+      });
+      return { e, enemyActs: res.events.filter(ev => ev.t === 'act' && ev.kind === 'enemy').length };
     });
-    expect(e.affixCharges?.adrenaline === 1 || e.hp >= e.maxHp * 0.5 || res.win).toBe(true);
+    const base = run([]);
+    const adr = run(['adrenaline']);
+    expect(base.e.affixCharges?.adrenaline ?? 0).toBe(0); // 无词缀不触发
+    expect(adr.e.affixCharges?.adrenaline).toBe(1); // 首次跌破 50% 触发一次
+    expect(adr.enemyActs).toBeGreaterThan(base.enemyActs); // 行动条提前 = 同预算内多出手一次
   });
 
   it('灼热轰炸：敌方攻击给我方附加灼烧 dot', () => {
@@ -913,25 +943,18 @@ describe('敌人词缀', () => {
 
   it('软弱无力：未穿满装备的我方伤害 ×0.85（固定种子对照）', () => {
     // 固定随机序列：两次战斗的摇档/暴击完全一致，weak 应精确等于 base×0.85
-    const seq = Array.from({ length: 4000 }, (_, k) => 0.3 + (k % 7) * 0.1); // 全部 ≥0.3：不触发 5% 暴击
-    const run = (affixes: string[]): number => {
-      let cursor = 0;
-      const spy = vi.spyOn(Math, 'random').mockImplementation(() => seq[cursor++ % seq.length]);
-      try {
-        const res = simulateBattle({
-          allies: [ally('seele', 1)], backers: [],
-          enemies: [mkEnemy('boss_p3', 3)],
-          spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 40,
-          teamFlags: { ...EMPTY_TEAM_FLAGS }, affixes
-        });
-        return res.events.filter(ev => ev.t === 'act' && (ev.kind === 'basic' || ev.kind === 'skill' || ev.kind === 'ult'))
-          .flatMap(ev => (ev.t === 'act' ? ev.hits : []))
-          .filter(h => h.dmg !== undefined)
-          .reduce((s2, h) => s2 + (h.dmg ?? 0), 0);
-      } finally {
-        spy.mockRestore();
-      }
-    };
+    const run = (affixes: string[]): number => withFixedRandom(() => {
+      const res = simulateBattle({
+        allies: [ally('seele', 1)], backers: [],
+        enemies: [mkEnemy('boss_p3', 3)],
+        spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 40,
+        teamFlags: { ...EMPTY_TEAM_FLAGS }, affixes
+      });
+      return res.events.filter(ev => ev.t === 'act' && (ev.kind === 'basic' || ev.kind === 'skill' || ev.kind === 'ult'))
+        .flatMap(ev => (ev.t === 'act' ? ev.hits : []))
+        .filter(h => h.dmg !== undefined)
+        .reduce((s2, h) => s2 + (h.dmg ?? 0), 0);
+    });
     const base = run([]);
     const weak = run(['weakness']);
     expect(base).toBeGreaterThan(0);
@@ -939,8 +962,8 @@ describe('敌人词缀', () => {
   });
 
   it('沉重脚步：我方受击后行动延后（事件顺序扰动）', () => {
-    // 高频敌方攻击下，带词缀版本我方出手次数显著减少
-    const run = (affixes: string[]) => {
+    // 高频敌方攻击下，带词缀版本我方出手次数减少；同序列对照消除随机基线
+    const run = (affixes: string[]) => withFixedRandom(() => {
       const res = simulateBattle({
         allies: [ally('march7th', 2)], backers: [],
         enemies: [mkEnemy('automaton_bear', 2)],
@@ -948,10 +971,10 @@ describe('敌人词缀', () => {
         teamFlags: { ...EMPTY_TEAM_FLAGS }, affixes
       });
       return res.events.filter(ev => ev.t === 'act' && (ev.kind === 'basic' || ev.kind === 'skill' || ev.kind === 'ult')).length;
-    };
+    });
     const base = run([]);
     const slow = run(['heavy_steps']);
-    expect(slow).toBeLessThanOrEqual(base);
+    expect(slow).toBeLessThan(base);
   });
 
   it('决战在即：首领倒计时 ×0.75 / 遭遇 ×1.2（battle-build 层）', () => {
@@ -964,46 +987,60 @@ describe('敌人词缀', () => {
     expect(input.enemyActionLimit).toBe(Math.round(18 * 0.75)); // 14
   });
 
-  it('能量逃逸：敌人受击时攻击者能量 -4', () => {
-    const res = simulateBattle({
-      allies: [ally('seele', 1)], backers: [],
-      enemies: [mkEnemy('swarm_wing', 3)], // 高血敌：打不死，多次受击
-      spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 40,
-      teamFlags: { ...EMPTY_TEAM_FLAGS }, affixes: ['energy_leak']
+  it('能量逃逸：敌人受击时攻击者能量 -4（收官能量对照）', () => {
+    // 同序列长局对照：出手次数一致（同一场战斗），仅我方收官能量被抽走（50 → 10）
+    const run = (affixes: string[]) => withFixedRandom(() => {
+      const a = ally('seele', 3);
+      const res = simulateBattle({
+        allies: [a], backers: [],
+        enemies: [mkEnemy('boss_p3', 3)], // 高血首领：长时间对攻，命中次数足够
+        spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 80,
+        teamFlags: { ...EMPTY_TEAM_FLAGS }, affixes
+      });
+      const hits = res.events.filter(ev => ev.t === 'act').flatMap(ev => (ev.t === 'act' ? ev.hits : [])).length;
+      return { energy: a.energy, hits, win: res.win };
     });
-    expect(res.win).toBe(false);
-    // 能量被持续扣除：终结技（ult 事件）出现次数受抑。弱断言：战斗正常终止即可 + events 合法
-    expect(res.events[res.events.length - 1].t).toBe('end');
+    const base = run([]);
+    const leak = run(['energy_leak']);
+    expect(base.win).toBe(false);
+    expect(base.hits).toBeGreaterThan(0);
+    expect(leak.hits).toBe(base.hits); // 同一场战斗：命中数与随机流一致
+    expect(leak.energy).toBeLessThan(base.energy); // 每次命中扣 4 能量 → 收官能量更低
   });
 
   it('复仇心切：非首领阵亡时其余敌人攻击 +8%', () => {
-    const e1 = mkEnemy('swarm_wing', 0.05);
-    const e2 = mkEnemy('swarm_wing', 0.05);
-    simulateBattle({
-      allies: [ally('seele', 3)], backers: [],
-      enemies: [e1, e2],
-      spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 60,
-      teamFlags: { ...EMPTY_TEAM_FLAGS }, affixes: ['vengeance']
+    // 同序列对照：稳定"先死一名、存活者获得 +8%"，不再依赖"是否一击双杀"的偶然
+    const { e1, e2 } = withFixedRandom(() => {
+      const e1 = mkEnemy('swarm_wing', 0.5);
+      const e2 = mkEnemy('swarm_wing', 0.5);
+      simulateBattle({
+        allies: [ally('seele', 3)], backers: [],
+        enemies: [e1, e2],
+        spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 60,
+        teamFlags: { ...EMPTY_TEAM_FLAGS }, affixes: ['vengeance']
+      });
+      return { e1, e2 };
     });
-    // e1（或 e2）先死时另一个存活者应拿到复仇 buff（若一击双杀则可能无）
-    const survived = [e1, e2].find(e => e.buffs.some((b: { atkPct?: number }) => (b.atkPct ?? 0) === 0.08));
-    expect(survived).toBeDefined();
+    const buffed = [e1, e2].filter(e => e.buffs.some((b: { atkPct?: number }) => (b.atkPct ?? 0) === 0.08));
+    expect(buffed).toHaveLength(1); // 恰好一名（后阵亡者的队友）获得复仇 buff
   });
 
-  it('额外打击：空装备栏受击附加真伤（高血敌下我方掉血快于对照）', () => {
-    const run = (affixes: string[]) => {
+  it('额外打击：空装备栏受击附加真伤（同序列下我方掉血更多）', () => {
+    const run = (affixes: string[]) => withFixedRandom(() => {
       const a = ally('march7th', 1);
-      simulateBattle({
+      const res = simulateBattle({
         allies: [a], backers: [],
-        enemies: [mkEnemy('boss_p3', 0.2)],
-        spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 10,
+        enemies: [mkEnemy('swarm_wing', 1)],
+        spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 14,
         teamFlags: { ...EMPTY_TEAM_FLAGS }, affixes
       });
-      return a.maxHp - a.hp;
-    };
+      return { taken: a.maxHp - a.hp, win: res.win };
+    });
     const base = run([]);
     const struck = run(['extra_strike']);
-    expect(struck).toBeGreaterThanOrEqual(base);
+    expect(base.win).toBe(true);
+    expect(base.taken).toBeGreaterThan(0); // 对照局确有受击
+    expect(struck.taken).toBeGreaterThan(base.taken); // 每个空装备栏附加 4% 生命真伤
   });
 });
 
@@ -1063,6 +1100,75 @@ describe('存档迁移与防御', () => {
     const loaded = loadSave();
     expect(loaded.current?.phase).toBe('reward');
     expect(loaded.current?.rewards).toEqual([{ kind: 'equip', equipId: 'b_atk' }]);
+  });
+
+  it('environment 阶段可持久化并完整恢复（三选一不丢档）', () => {
+    const st = newMatch();
+    expect(st.phase).toBe('environment');
+    const data: SaveData = { ...defaultSave(), rank: 0, current: null };
+    persistMatch(data, st);
+    __lsStore.set('currencywars_save_v1', JSON.stringify(data));
+    const loaded = loadSave();
+    expect(loaded.current?.phase).toBe('environment');
+    expect(loaded.current?.environmentOffers).toHaveLength(3);
+    expect(loaded.current?.environments).toEqual([]);
+  });
+
+  it('battle 阶段续档降级为 prep（战斗中途退出不丢节点）', () => {
+    const st = newMatchPrep();
+    st.phase = 'battle';
+    const data: SaveData = { ...defaultSave(), current: null };
+    persistMatch(data, st);
+    expect(data.current?.phase).toBe('prep');
+    // 降级后必须仍是合法可续档状态
+    expect(['prep', 'reward', 'strategy', 'environment', 'supplyResult']).toContain(data.current?.phase);
+  });
+
+  it('脏档数值防御：NaN/负数/越界一律钳回合法区间', () => {
+    const st = newMatchPrep();
+    const poison = st as unknown as Record<string, number>;
+    poison.hp = Number.NaN;
+    poison.gold = -50;
+    poison.level = 99;
+    poison.exp = Number.POSITIVE_INFINITY;
+    poison.winStreak = -3;
+    poison.lossStreak = Number.NaN;
+    poison.battlesWon = Number.NaN;
+    poison.battlesLost = -1;
+    poison.bestWinStreak = Number.NaN;
+    poison.threeStarsMade = -9;
+    poison.freeRerolls = Number.NaN;
+    poison.freeBuys = -4;
+    poison.gemGoldTick = Number.NaN;
+    expect(() => migrateMatch(st)).not.toThrow();
+    expect(st.hp).toBe(CFG.startHp); // 生命回退到满值而非 0（0 血档已由 loadSave 弃档）
+    expect(st.gold).toBe(0);
+    expect(st.level).toBe(CFG.maxLevel);
+    expect(st.exp).toBe(0);
+    expect(st.winStreak).toBe(0);
+    expect(st.lossStreak).toBe(0);
+    expect(st.battlesWon).toBe(0);
+    expect(st.battlesLost).toBe(0);
+    expect(st.bestWinStreak).toBe(0);
+    expect(st.threeStarsMade).toBe(0);
+    expect(st.freeRerolls).toBe(0);
+    expect(st.freeBuys).toBe(0);
+    expect(st.gemGoldTick).toBe(0);
+    // 钳位后仍满足 soak 的区间不变量
+    expect(st.hp).toBeGreaterThanOrEqual(1);
+    expect(st.level).toBeGreaterThanOrEqual(CFG.startLevel);
+  });
+
+  it('脏档规模防御：上阵数不超等级、备战席不超上限', () => {
+    const st = newMatchPrep();
+    st.level = CFG.startLevel; // 3
+    const mk = (n: number) => Array.from({ length: n }, (_, i) => mkUnit('march7th', 1, null));
+    st.board = mk(7) as MatchState['board'];
+    st.bench = mk(20) as MatchState['bench'];
+    migrateMatch(st);
+    expect(st.level).toBe(CFG.startLevel);
+    expect(st.board.length).toBeLessThanOrEqual(st.level);
+    expect(st.bench.length).toBeLessThanOrEqual(CFG.benchSlots);
   });
 });
 
