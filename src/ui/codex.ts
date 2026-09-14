@@ -2,6 +2,7 @@ import { CHARACTERS } from '../data/characters';
 import { ALL_EQUIPS, BASIC_EQUIPS } from '../data/equipment';
 import { ENEMIES } from '../data/enemies';
 import { ALL_TRAITS } from '../data/traits';
+import { AFFIXES } from '../data/affixes';
 import { COST_COLORS, h } from './dom';
 import { avatar, enemyMark, equipMark, hexTrait } from './icons';
 import type { AppCtx } from './ctx';
@@ -95,5 +96,16 @@ function codexBody(ctx: AppCtx, tab: Tab): HTMLElement {
       h('div', { class: 'cc-skill' }, e.moves.map(m => `${m.name}${m.aoe ? '(群)' : ''}`).join(' / '))
     ));
   }
+  // 晋升词缀说明卡（词缀挂在战斗节点上，位面二起出现）
+  grid.append(h('div', { class: 'codex-card trait', style: { gridColumn: '1 / -1' } },
+    h('div', { class: 'cc-head' },
+      h('span', { class: 'cc-name' }, '🔥 晋升词缀'),
+      h('span', { class: 'cc-cost' }, '难度值 = 位面基础 + 词缀点 + 金策略×3')
+    ),
+    h('div', { class: 'cc-sub' }, '位面二起部分战斗与首领节点携带词缀，备战界面「对局情报」可查看词缀与难度值。'),
+    ...AFFIXES.map(a => h('div', { class: 'cc-tier' },
+      h('b', { style: { color: a.color } }, `${a.icon} ${a.name} +${a.points}`), ` ${a.desc}`
+    ))
+  ));
   return grid;
 }

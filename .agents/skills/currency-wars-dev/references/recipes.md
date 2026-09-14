@@ -60,6 +60,15 @@
 - **财富宝钻**：非装备，`MatchState.wealthGem`（resolveBattle 首个 boss 胜利发放）；后台容量统一走 `match.ts backCapacity(st)`，勿直引 `CFG.backSlots`
 - 图鉴/背包合成/穿戴 UI 全自动。新 flags 字段需同步 `UnitFlags`/`TeamFlags`、`EMPTY_*`、engine（含 CombatUnit 构造点 battle-build.ts 三处与 core.test.ts 的 mkEnemy）
 
+## 3.5 新增敌人词缀
+
+四步接线（锚点速查见 rules-cheatsheet.md「敌人词缀」节）：
+
+1. `src/data/affixes.ts`：加 `AffixDef { id, name, icon, color, desc, points }`（点数 5/10/15 三档，机制型词缀先上保守数值）
+2. **引擎效果**：`src/battle/engine.ts` 按 id 判定。常用锚点——伤害修改在 `dealDamage`；致死拦截在 `applyDamage`（配合 `cheatDeathGuard` 与 `affixCharges` 每敌一次计数）；开战全局在 `simulateBattle` 开头（仿 `tough_skin`）；倒计时类直接改 `BattleInput.enemyActionLimit` 的在 `battle-build.ts`（仿 `showdown`，UI/bot 自动一致）
+3. `src/data/stages.ts`：目标节点 `BattleNode.affixes: ['<id>']`
+4. 测试：`tests/core.test.ts` 敌人词缀 describe 加一条行为断言 + 数据完整性自动覆盖（节点引用合法性）
+
 ## 4. 新增敌人 / 调整节点
 
 - 敌人：`src/data/enemies.ts` 的 `EnemyDef { id, name, color, hp, atk, def, spd, critRate, critDmg, moves, boss? }`。敌人无能量系统，按 `moves` 数组轮换，单体永远打前台 1 号位。
