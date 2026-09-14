@@ -16,9 +16,10 @@ import { activeTraits, computeTeamFlags, traitById } from '../src/logic/synergy'
 import { rerollCostOf, rollStrategyOffers, strategyEnemyMult, strategyTeamFlags, strategyUnitMods } from '../src/logic/strategy';
 import { strategyById } from '../src/data/strategies';
 import { EMPTY_TEAM_FLAGS } from '../src/logic/types';
-import { loadSave, migrateMatch, persistMatch, type SaveData } from '../src/game/save';
+import { finishMatch, loadSave, migrateMatch, persistMatch, type SaveData } from '../src/game/save';
 import { strategyBattleMods } from '../src/logic/strategy';
 import { ENVIRONMENTS, envById } from '../src/data/environments';
+import { rollShop } from '../src/logic/shop';
 import { environmentTeamFlags, rollEnvironmentOffers } from '../src/logic/environment';
 import type { CombatUnit, MatchState, OwnedUnit } from '../src/logic/types';
 
@@ -1279,3 +1280,88 @@ function st2Environment(st: MatchState, plane: number): void {
   st.phase = 'environment';
   st.environmentOffers = ['money_printing', 'stock_express', 'fixed_fund'];
 }
+
+describe('超频模式与对手公司', () => {
+  it('超频对局：敌 ×1.10、精选词缀组、showdown 生效', () => {
+    const st = newMatch(true);
+    expect(st.overclock).toBe(true);
+    st.plane = 0;
+    st.node = 0;
+    st.board = [mkUnit('march7th', 3, { row: 'front', index: 0 })];
+    const oc = buildBattleInput(st);
+    const normal = buildBattleInput(newMatchPrep());
+    // 遭遇战 showdown 词缀 ×1.2；首领战 ×0.75 更紧
+    expect(oc.enemyActionLimit).toBe(Math.round(14 * 1.2));
+    expect(oc.enemies[0].maxHp).toBeGreaterThan(normal.enemies[0].maxHp);
+    // 超频精选词缀组（vengeance/energy_leak/extra_strike/showdown/tough_skin）
+    expect(oc.affixes?.includes('tough_skin')).toBe(true);
+    expect(oc.affixes?.includes('showdown')).toBe(true);
+    expect((oc.affixes ?? []).length).toBeGreaterThanOrEqual(5);
+    // 普通局位面一无词缀
+    expect(normal.affixes ?? []).toHaveLength(0);
+  });
+
+  it('超频结算：晋升 +1、解锁与计数', () => {
+    const save: SaveData = { rank: 2, totalWins: 1, totalRuns: 2, bestStreak: 1, totalThreeStars: 0, overclockUnlocked: false, overclockEnabled: false, overclockWins: 0, current: null };
+    const st = newMatchPrep();
+    st.overclock = true;
+    st.phase = 'victory';
+    st.hp = 90; // 常规 +3
+    const { rankGain } = finishMatch(save, st);
+    expect(rankGain).toBe(4); // 3 + 超频 1
+    expect(save.overclockUnlocked).toBe(true);
+    expect(save.overclockWins).toBe(1);
+    expect(save.rank).toBe(6);
+  });
+
+  it('普通通关也解锁超频；SaveData 旧档布尔自动兜底', () => {
+    const save: SaveData = { rank: 0, totalWins: 0, totalRuns: 0, bestStreak: 0, totalThreeStars: 0, overclockUnlocked: false, overclockEnabled: false, overclockWins: 0, current: null };
+    const st = newMatchPrep();
+    st.phase = 'victory';
+    st.hp = 50;
+    finishMatch(save, st);
+    expect(save.overclockUnlocked).toBe(true);
+    expect(save.overclockWins).toBe(0);
+    // 旧档 JSON 缺字段 → merged 展开兜底
+    __lsStore.set('currencywars_save_v1', JSON.stringify({ rank: 3, totalWins: 1 }));
+    const loaded = loadSave();
+    expect(loaded.overclockUnlocked).toBe(false);
+    expect(loaded.overclockEnabled).toBe(false);
+    expect(loaded.overclockWins).toBe(0);
+  });
+
+  it('对手公司：11 个战斗节点全部配置且在官方 20 家内', () => {
+    const COMPANIES = ['凛冬经贸联合体', '铁盾安保集团', '深穹智械科技', '火线动力机甲', '冷锋兵器工业', '巨鹿生物制药', '造梦兄弟影业', '造梦互动娱乐', '银甲武装公司', '猎星资本', '纷争前线军团', '灰手生命科技', '增熵能源集团', '智识实验室', '金血记忆体联盟', '虫人兵器', '火花网络传媒', '钢铁意志集团', '不死者联盟', '绘师家族产业'];
+    let battleNodes = 0;
+    for (const plane of PLANES) {
+      for (const n of plane.nodes) {
+        if (n.kind === 'battle' || n.kind === 'boss') {
+          battleNodes++;
+          expect(n.battle.company).toBeTruthy();
+          expect(COMPANIES).toContain(n.battle.company!);
+        }
+      }
+    }
+    expect(battleNodes).toBe(11);
+  });
+
+  it('概念股加权：bias 阵营在商店中显著更常见', () => {
+    const pool = createPool();
+    const counts: Record<string, number> = {};
+    const N = 240;
+    for (let i = 0; i < N; i++) {
+      for (const o of rollShop(4, { ...pool }, 'xianzhou')) {
+        if (o.charId) counts[o.charId] = (counts[o.charId] ?? 0) + 1;
+      }
+    }
+    let xianzhou = 0;
+    let total = 0;
+    for (const [id, n] of Object.entries(counts)) {
+      total += n;
+      if (charById(id).faction === 'xianzhou') xianzhou += n;
+    }
+    // 基线约 1/4（4 阵营同级池），加权后期望 >1/3
+    expect(total).toBeGreaterThan(0);
+    expect(xianzhou / total).toBeGreaterThan(0.33);
+  });
+});
