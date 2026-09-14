@@ -453,13 +453,19 @@ export function advanceNode(st: MatchState): void {
     st.phase = 'environment';
     return;
   }
-  if (next.kind === 'reward') {
+  enterCurrentNode(st);
+}
+
+/** 进入「当前节点」对应的阶段（advanceNode 与载档修复共用，避免两处各写一半） */
+function enterCurrentNode(st: MatchState): void {
+  const node = PLANES[st.plane].nodes[st.node];
+  if (node.kind === 'reward') {
     st.rewards = rollRewards();
     st.phase = 'reward';
-  } else if (next.kind === 'supply') {
+  } else if (node.kind === 'supply') {
     st.supplyItems = [randomBasicEquip(), randomBasicEquip()];
     st.phase = 'supplyResult';
-  } else if (next.kind === 'strategy') {
+  } else if (node.kind === 'strategy') {
     st.strategyOffers = rollStrategyOffers();
     st.phase = 'strategy';
   } else {
@@ -471,6 +477,30 @@ export function advanceNode(st: MatchState): void {
     autoRefreshShop(st);
     st.phase = 'prep';
   }
+}
+
+/**
+ * 载入存档后的阶段完整性修复：保证「当前阶段一定可推进」。
+ *
+ * 选择/奖励类阶段一旦没有内容，玩家就既打不了（`startBattle` 只接受战斗与首领节点）
+ * 也推进不了（唯一推进入口是各阶段的采纳函数）→ 永久软锁。旧档里这类状态来自两处：
+ * 一是迁移把「空三选一」回退成了 prep 却停在同一节点上，二是奖励 id 失效被过滤成空。
+ * 修复策略：能从池子重摇就重摇（保留玩家的选择权），实在无可选才跳过该节点。
+ */
+export function repairPhase(st: MatchState): void {
+  if (st.phase === 'environment' && st.environmentOffers.length === 0) {
+    // 环境三选一不挂在节点上（位面开始时触发），重摇即可
+    st.environmentOffers = rollEnvironmentOffers();
+    if (st.environmentOffers.length === 0) enterCurrentNode(st);
+    return;
+  }
+  const node = PLANES[st.plane].nodes[st.node];
+  const empty =
+    (st.phase === 'prep' && node.kind !== 'battle' && node.kind !== 'boss') ||
+    (st.phase === 'strategy' && st.strategyOffers.length === 0) ||
+    (st.phase === 'reward' && st.rewards.length === 0) ||
+    (st.phase === 'supplyResult' && (st.supplyItems ?? []).length === 0);
+  if (empty) enterCurrentNode(st);
 }
 
 /** 采纳投资策略（三选一）：应用即时效果后推进节点 */

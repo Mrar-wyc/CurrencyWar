@@ -10,13 +10,13 @@ import { simulateBattle } from '../src/battle/engine';
 import { buildAllyUnit, buildBackerUnit, buildBattleInput } from '../src/logic/battle-build';
 import {
   advanceNode, backCapacity, buyShop, buyExp, combineEquips, equipItemTo, newMatch, pickEnvironment, pickStrategy,
-  placeUnit, recallUnit, reroll, resolveBattle, sellUnit, unequipItem, sellValue
+  placeUnit, recallUnit, repairPhase, reroll, resolveBattle, sellUnit, unequipItem, sellValue
 } from '../src/game/match';
 import { activeTraits, computeTeamFlags, traitById } from '../src/logic/synergy';
 import { rerollCostOf, rollStrategyOffers, strategyEnemyMult, strategyTeamFlags, strategyUnitMods } from '../src/logic/strategy';
 import { strategyById } from '../src/data/strategies';
 import { EMPTY_TEAM_FLAGS } from '../src/logic/types';
-import { defaultSave, finishMatch, loadSave, migrateMatch, persistMatch, type SaveData } from '../src/game/save';
+import { defaultSave, discardCurrent, finishMatch, loadSave, migrateMatch, persistMatch, type SaveData } from '../src/game/save';
 import { strategyBattleMods } from '../src/logic/strategy';
 import { ENVIRONMENTS, envById } from '../src/data/environments';
 import { rollShop } from '../src/logic/shop';
@@ -1169,6 +1169,178 @@ describe('存档迁移与防御', () => {
     expect(st.level).toBe(CFG.startLevel);
     expect(st.board.length).toBeLessThanOrEqual(st.level);
     expect(st.bench.length).toBeLessThanOrEqual(CFG.benchSlots);
+  });
+
+  it('脏档商店防御：缺失/非法 charId 一律重摇成合法五格', () => {
+    const st = newMatchPrep();
+    const raw = st as unknown as Record<string, unknown>;
+    delete raw.shop;
+    expect(() => migrateMatch(st)).not.toThrow();
+    expect(st.shop).toHaveLength(CFG.shopSize);
+    for (const o of st.shop) if (o.charId) expect(() => charById(o.charId!)).not.toThrow();
+
+    // 非法 charId 会顺着 charById 抛异常崩掉备战界面
+    const st2 = newMatchPrep();
+    st2.shop = [{ charId: 'ghost_char' }, { charId: null }] as unknown as MatchState['shop'];
+    expect(() => migrateMatch(st2)).not.toThrow();
+    expect(st2.shop).toHaveLength(CFG.shopSize);
+    for (const o of st2.shop) if (o.charId) expect(CHARACTERS.some(c => c.id === o.charId)).toBe(true);
+  });
+
+  it('脏档牌池防御：缺键补满、越界与非数值钳回、未知键丢弃', () => {
+    const st = newMatchPrep();
+    const raw = st as unknown as Record<string, unknown>;
+    delete raw.pool;
+    expect(() => migrateMatch(st)).not.toThrow();
+    // 每个角色都有合法复制数，否则商店会永久空
+    for (const c of CHARACTERS) expect(st.pool[c.id]).toBeGreaterThan(0);
+
+    const st2 = newMatchPrep();
+    st2.pool = { march7th: Number.NaN, danheng: -5, asta: 999, ghost_char: 3 } as unknown as MatchState['pool'];
+    migrateMatch(st2);
+    expect(st2.pool.march7th).toBe(POOL_COPIES[charById('march7th').cost]);
+    expect(st2.pool.danheng).toBe(0);
+    expect(st2.pool.asta).toBe(POOL_COPIES[charById('asta').cost]);
+    expect(Object.keys(st2.pool)).toHaveLength(CHARACTERS.length);
+    expect(st2.pool.ghost_char).toBeUndefined();
+  });
+
+  it('脏档单位防御：非法 slot 与重复占用退回备战席，不产生看不见的棋子', () => {
+    const st = newMatchPrep();
+    st.level = 6;
+    st.board = [
+      mkUnit('march7th', 1, { row: 'front', index: 0 }),
+      mkUnit('danheng', 1, { row: 'front', index: 99 } as unknown as OwnedUnit['slot']),
+      mkUnit('asta', 1, { row: 'front', index: 0 }) // 与第一名抢同一格
+    ];
+    st.bench = [];
+    migrateMatch(st);
+    // 只剩一个占用合法格的上阵位；其余两个回到备战席（可被点选/出售）
+    expect(st.board).toHaveLength(1);
+    expect(st.bench).toHaveLength(2);
+    for (const u of st.bench) expect(u.slot).toBeNull();
+    expect(st.board.length + st.bench.length).toBe(3);
+  });
+
+  it('脏档 uid/seq 防御：重复 uid 重发，seq 续在最大序号之后', () => {
+    const st = newMatchPrep();
+    st.board = [mkUnit('march7th', 1, { row: 'front', index: 0 })];
+    st.bench = [mkUnit('danheng', 1, null), mkUnit('asta', 1, null)];
+    st.board[0].uid = 'u1';
+    st.bench[0].uid = 'u1'; // 重复：卖一个会删两个
+    st.bench[1].uid = 'u7';
+    (st as unknown as Record<string, unknown>).seq = null;
+    migrateMatch(st);
+    const uids = [...st.board, ...st.bench].map(u => u.uid);
+    expect(new Set(uids).size).toBe(uids.length);
+    expect(st.seq).toBeGreaterThan(7);
+  });
+
+  it('脏档计数器防御：非数值 map 值被剔除（否则 NaN 会顺着算式污染金币与战斗）', () => {
+    const st = newMatchPrep();
+    st.strategyData = { hyperinflation_lost: Number.NaN, hyperinflation_nodes: 2, promo4: 'x' } as unknown as MatchState['strategyData'];
+    st.environmentData = { evolution: 'y', long_term: 3 } as unknown as MatchState['environmentData'];
+    migrateMatch(st);
+    expect(st.strategyData.hyperinflation_lost).toBeUndefined();
+    expect(st.strategyData.promo4).toBeUndefined();
+    expect(st.strategyData.hyperinflation_nodes).toBe(2);
+    expect(st.environmentData.evolution).toBeUndefined();
+    expect(st.environmentData.long_term).toBe(3);
+  });
+
+  it('脏档等级防御：经验不小于升级阈值（否则一次买经验直升满级）', () => {
+    const st = newMatchPrep();
+    const raw = st as unknown as Record<string, number>;
+    raw.level = 3;
+    raw.exp = 999;
+    migrateMatch(st);
+    expect(st.exp).toBeLessThan(CFG.expToNext[3]);
+    // 满级时经验归零
+    const st2 = newMatchPrep();
+    (st2 as unknown as Record<string, number>).level = CFG.maxLevel;
+    (st2 as unknown as Record<string, number>).exp = 500;
+    migrateMatch(st2);
+    expect(st2.exp).toBe(0);
+  });
+
+  it('脏档布尔防御：字符串 "false" 不再被当成真值', () => {
+    const st = newMatchPrep();
+    const raw = st as unknown as Record<string, unknown>;
+    raw.overclock = 'false';
+    raw.shopLocked = 'false';
+    raw.wealthGem = 'false';
+    raw.gemNew = 'false';
+    migrateMatch(st);
+    expect(st.overclock).toBe(false);
+    expect(st.shopLocked).toBe(false);
+    expect(st.wealthGem).toBe(false);
+    expect(st.gemNew).toBe(false);
+  });
+
+  it('脏档奖励防御：金币 NaN 的奖励被剔除（否则卡片显示 +NaN 且领取无效）', () => {
+    const st = newMatchPrep();
+    st.rewards = [{ kind: 'gold', gold: Number.NaN }, { kind: 'gold', gold: 8 }] as unknown as MatchState['rewards'];
+    migrateMatch(st);
+    expect(st.rewards).toEqual([{ kind: 'gold', gold: 8 }]);
+  });
+
+  it('阶段修复：空三选一/空奖励/备战停在非战斗节点都不再软锁', () => {
+    // 1) 策略节点空三选一 → 重摇出 3 条（玩家保留选择权，节点不被跳过）
+    const a = newMatchPrep();
+    a.plane = 0; a.node = 1; // 位面一 node1 = 策略节点
+    a.phase = 'strategy'; a.strategyOffers = [];
+    repairPhase(a);
+    expect(a.phase).toBe('strategy');
+    expect(a.strategyOffers).toHaveLength(3);
+
+    // 2) 奖励节点空奖励 → 重新生成（奖励界面只有卡片，没有任何按钮）
+    const b = newMatchPrep();
+    b.plane = 0; b.node = 2; // 奖励节点
+    b.phase = 'reward'; b.rewards = [];
+    repairPhase(b);
+    expect(b.phase).toBe('reward');
+    expect(b.rewards.length).toBeGreaterThan(0);
+
+    // 3) 旧档残留：备战阶段却停在策略节点 → 进回该节点该有的阶段
+    const c = newMatchPrep();
+    c.plane = 0; c.node = 1;
+    c.phase = 'prep'; c.strategyOffers = [];
+    repairPhase(c);
+    expect(c.phase).toBe('strategy');
+    expect(c.strategyOffers).toHaveLength(3);
+
+    // 4) 环境三选一为空 → 重摇
+    const d = newMatchPrep();
+    d.phase = 'environment'; d.environmentOffers = [];
+    repairPhase(d);
+    expect(d.phase).toBe('environment');
+    expect(d.environmentOffers).toHaveLength(3);
+
+    // 5) 补给阶段无内容 → 重新生成（与奖励节点同策略：补回内容而不是跳过，玩家不丢奖励）
+    const e = newMatchPrep();
+    e.plane = 0; e.node = 4; // 补给节点
+    e.phase = 'supplyResult'; e.supplyItems = [];
+    repairPhase(e);
+    expect(e.phase).toBe('supplyResult');
+    expect(e.supplyItems).toHaveLength(2);
+  });
+
+  it('渲染异常兜底：discardCurrent 只清续档，保留终身统计', () => {
+    const data: SaveData = {
+      ...defaultSave(), rank: 5, totalWins: 9, totalRuns: 20, bestStreak: 6, totalThreeStars: 4,
+      overclockUnlocked: true, current: newMatch()
+    };
+    persistMatch(data, data.current!);
+    __lsStore.set('currencywars_save_v1', JSON.stringify(data));
+    const loaded = loadSave();
+    expect(loaded.current).not.toBeNull();
+
+    discardCurrent(loaded);
+    const after = loadSave();
+    expect(after.current).toBeNull(); // 续档丢弃
+    expect(after.rank).toBe(5); // 终身统计保留
+    expect(after.totalWins).toBe(9);
+    expect(after.overclockUnlocked).toBe(true);
   });
 });
 

@@ -1,7 +1,7 @@
 import './style.css';
 import { Capacitor } from '@capacitor/core';
-import { finishMatch, loadSave, persistMatch } from './game/save';
-import { newMatch, resolveBattle } from './game/match';
+import { discardCurrent, finishMatch, loadSave, persistMatch } from './game/save';
+import { newMatch, repairPhase, resolveBattle } from './game/match';
 import type { BattleInput } from './logic/battle-build';
 import type { MatchState } from './logic/types';
 import type { AppCtx, FinishSummary, Selection } from './ui/ctx';
@@ -13,11 +13,13 @@ import { renderStrategy } from './ui/strategy';
 import { renderEnvironment } from './ui/environment';
 import { renderCodex } from './ui/codex';
 import { renderHelp } from './ui/help';
-import { clear, h } from './ui/dom';
+import { clear, h, toast } from './ui/dom';
 
 type Screen = 'menu' | 'game' | 'codex' | 'help';
 
 const save = loadSave();
+// 载档后先做阶段完整性修复：空三选一/空奖励会让对局既打不了也推进不了（软锁）
+if (save.current) repairPhase(save.current);
 let screen: Screen = 'menu';
 let codexTab: 'char' | 'trait' | 'equip' | 'enemy' = 'char';
 let st: MatchState | null = save.current;
@@ -106,7 +108,33 @@ const ctx: AppCtx = {
 /** 上次渲染的「屏幕:阶段」key——仅变化时播淡入动画，点击刷新不重播防屏闪 */
 let lastRenderKey = '';
 
+/**
+ * 渲染兜底：任何渲染异常都会留下一个空白舞台，玩家既看不到错误也没有恢复入口
+ * （脏档正是这种情况）。捕获后丢弃续档回到主菜单，让游戏始终可继续。
+ * 入口统一走 render()，内部实现是 renderUnsafe()，避免有调用方漏掉保护。
+ */
 function render(): void {
+  try {
+    renderUnsafe();
+  } catch (e) {
+    console.error('[render] 渲染失败，已重置当前对局', e);
+    discardCurrent(save);
+    st = null;
+    pendingBattle = null;
+    uiState.sel = null;
+    uiState.finishSummary = null;
+    screen = 'menu';
+    lastRenderKey = '';
+    try {
+      renderUnsafe();
+    } catch (e2) {
+      console.error('[render] 主菜单同样渲染失败', e2);
+    }
+    toast('存档数据异常，已重置当前对局（终身统计保留）');
+  }
+}
+
+function renderUnsafe(): void {
   const app = document.getElementById('app')!;
   clear(app);
   const key = `${screen}:${st?.phase ?? ''}:${pendingBattle ? 'battle' : ''}`;
