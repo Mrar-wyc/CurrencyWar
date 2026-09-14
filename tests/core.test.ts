@@ -16,6 +16,8 @@ import { activeTraits, computeTeamFlags, traitById } from '../src/logic/synergy'
 import { rerollCostOf, rollStrategyOffers, strategyEnemyMult, strategyTeamFlags, strategyUnitMods } from '../src/logic/strategy';
 import { strategyById } from '../src/data/strategies';
 import { EMPTY_TEAM_FLAGS } from '../src/logic/types';
+import { loadSave, migrateMatch, persistMatch, type SaveData } from '../src/game/save';
+import { strategyBattleMods } from '../src/logic/strategy';
 import type { CombatUnit, MatchState, OwnedUnit } from '../src/logic/types';
 
 function mkUnit(charId: string, star: 1 | 2 | 3 = 1, slot: OwnedUnit['slot'] = null): OwnedUnit {
@@ -982,5 +984,139 @@ describe('敌人词缀', () => {
     const base = run([]);
     const struck = run(['extra_strike']);
     expect(struck).toBeGreaterThanOrEqual(base);
+  });
+});
+
+// localStorage 桩（save 模块在 node 测试环境使用）
+const __lsStore = new Map<string, string>();
+(globalThis as unknown as { localStorage: unknown }).localStorage = {
+  getItem: (k: string) => __lsStore.get(k) ?? null,
+  setItem: (k: string, v: string) => { __lsStore.set(k, v); },
+  removeItem: (k: string) => { __lsStore.delete(k); },
+  clear: () => { __lsStore.clear(); }
+};
+
+describe('存档迁移与防御', () => {
+  it('非法装备/角色 id 按白名单过滤，不抛异常', () => {
+    const st = newMatch();
+    st.inventory = ['b_atk', 'ghost_equip', 'e_express'];
+    st.bench = [
+      { uid: 'a', charId: 'march7th', star: 1, slot: null, equips: ['ghost_equip', 'b_hp'] },
+      { uid: 'b', charId: 'ghost_char', star: 1, slot: null, equips: [] },
+      { uid: 'c', charId: 'danheng', star: 9, slot: null, equips: [] } as unknown as OwnedUnit
+    ];
+    st.rewards = [{ kind: 'equip', equipId: 'ghost_equip' }, { kind: 'gold', gold: 8 }, { kind: 'equip', equipId: 'b_def' }];
+    st.supplyItems = ['ghost_equip', 'b_atk'];
+    expect(() => migrateMatch(st)).not.toThrow();
+    expect(st.inventory).toEqual(['b_atk', 'e_express']);
+    expect(st.bench).toHaveLength(1);
+    expect(st.bench[0].equips).toEqual(['b_hp']);
+    expect(st.rewards).toEqual([{ kind: 'gold', gold: 8 }, { kind: 'equip', equipId: 'b_def' }]);
+    expect(st.supplyItems).toEqual(['b_atk']);
+  });
+
+  it('plane/node 越界回起点；gameOver/未知 phase 弃档', () => {
+    const st = newMatch();
+    st.plane = 9; st.node = 99;
+    migrateMatch(st);
+    expect(st.plane).toBe(0);
+    expect(st.node).toBe(0);
+
+    const data: SaveData = { rank: 1, totalWins: 1, totalRuns: 2, bestStreak: 1, totalThreeStars: 0, current: newMatch() };
+    data.current!.phase = 'gameOver';
+    persistMatch(data, data.current!);
+    // persistMatch 对终局清空 current
+    expect(data.current).toBeNull();
+
+    __lsStore.set('currencywars_save_v1', JSON.stringify({ rank: 0, current: { ...newMatch(), phase: 'corrupted' } }));
+    const loaded = loadSave();
+    expect(loaded.current).toBeNull();
+  });
+
+  it('reward/supplyResult 阶段可持久化并完整恢复', () => {
+    const st = newMatch();
+    st.phase = 'reward';
+    st.rewards = [{ kind: 'equip', equipId: 'b_atk' }];
+    const data: SaveData = { rank: 0, totalWins: 0, totalRuns: 0, bestStreak: 0, totalThreeStars: 0, current: null };
+    persistMatch(data, st);
+    __lsStore.set('currencywars_save_v1', JSON.stringify(data));
+    const loaded = loadSave();
+    expect(loaded.current?.phase).toBe('reward');
+    expect(loaded.current?.rewards).toEqual([{ kind: 'equip', equipId: 'b_atk' }]);
+  });
+});
+
+describe('复盘补测：合成与策略映射', () => {
+  it('同 id 两件简易装备可合成（×2 配方）', () => {
+    expect(findCombine('b_atk', 'b_atk')?.id).toBe('a_dawn');
+    const st = newMatch();
+    st.inventory = ['b_atk', 'b_atk'];
+    expect(combineEquips(st, 'b_atk', 'b_atk')).toBeNull();
+    expect(st.inventory).toEqual(['a_dawn']);
+  });
+
+  it('同 id 合成不误删中间物品（[X,Y,X] 场景）', () => {
+    const st = newMatch();
+    st.inventory = ['b_atk', 'b_hp', 'b_atk'];
+    expect(combineEquips(st, 'b_atk', 'b_atk')).toBeNull();
+    expect(st.inventory).toEqual(['b_hp', 'a_dawn']);
+  });
+
+  it('strategyBattleMods：当头一棒 nuke 与风暴骑士 0.7 映射', () => {
+    const st = newMatch();
+    st.strategies = ['head_bash'];
+    expect(strategyBattleMods(st).nuke).toEqual({ mult: 10, defPct: -0.30, turns: 2 });
+    st.strategies = ['storm_knight'];
+    expect(strategyBattleMods(st).firstSelfHarmPct).toBeCloseTo(0.70);
+  });
+
+  it('pickStrategy 全链路：ootd 采纳、奋斗协议买经验扣血', () => {
+    const st = newMatch();
+    st.phase = 'strategy';
+    st.strategyOffers = ['ootd', 'lucky_dog', 'middle_class'];
+    pickStrategy(st, 0);
+    expect(st.strategies).toContain('ootd');
+    const st2 = newMatch();
+    st2.phase = 'strategy';
+    st2.strategyOffers = ['struggle_protocol', 'ootd', 'lucky_dog'];
+    pickStrategy(st2, 0);
+    st2.phase = 'prep';
+    const hp0 = st2.hp;
+    st2.gold = 10;
+    buyExp(st2);
+    expect(st2.hp).toBe(hp0 - 6);
+  });
+});
+
+describe('复盘补测：引擎细节', () => {
+  it('击杀再动为免费行动（noTick 事件不消耗行动值）', () => {
+    const res = simulateBattle({
+      allies: [ally('seele', 3)],
+      backers: [],
+      enemies: [mkEnemy('swarm_wing', 0.05), mkEnemy('swarm_wing', 0.05), mkEnemy('swarm_wing', 0.05)],
+      spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 30,
+      teamFlags: { ...EMPTY_TEAM_FLAGS }
+    });
+    const acts = res.events.filter(e => e.t === 'act');
+    const freeActs = acts.filter(e => e.t === 'act' && e.noTick);
+    expect(freeActs.length).toBeGreaterThan(0); // 3★希儿必杀出再动
+    const consumed = acts.filter(e => e.t === 'act' && !e.noTick
+      && (e.kind === 'basic' || e.kind === 'skill' || e.kind === 'ult' || e.kind === 'enemy' || e.kind === 'backend')).length;
+    expect(res.ticks).toBe(consumed);
+  });
+
+  it('额外打击：附加真伤可击倒我方且产生事件', () => {
+    const front = ally('march7th', 1);
+    const res = simulateBattle({
+      allies: [front],
+      backers: [],
+      enemies: [mkEnemy('boss_p3', 1)],
+      spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 30,
+      teamFlags: { ...EMPTY_TEAM_FLAGS }, affixes: ['extra_strike']
+    });
+    expect(res.win).toBe(false);
+    expect(front.alive).toBe(false);
+    const end = res.events.find(e => e.t === 'end');
+    if (end?.t === 'end') expect(end.win).toBe(false);
   });
 });

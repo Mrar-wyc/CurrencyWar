@@ -43,7 +43,8 @@ export function loadSave(): SaveData {
 }
 
 /** 旧档迁移与脏数据防御：补齐投资策略字段、过滤非法策略 id、空三选一回退备战 */
-function migrateMatch(cur: MatchState): void {
+/** 旧档迁移（导出供测试）：字段补齐、id 白名单过滤、越界回退 */
+export function migrateMatch(cur: MatchState): void {
   const known = new Set(STRATEGIES.map(s => s.id));
   const validIds = (v: unknown): string[] =>
     Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === 'string' && known.has(x)))] : [];
