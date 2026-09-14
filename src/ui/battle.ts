@@ -5,7 +5,16 @@ import type { BattleInput } from '../logic/battle-build';
 import { h } from './dom';
 import type { GameCtx } from './ctx';
 
+/**
+ * 当前正在回放的渲染器。render() 在对局中是可重入的（调试钩子会触发重绘），
+ * 没有这层保护就会并存两个渲染器：各自 rAF 跑一遍、各自回调 onDone
+ * → resolveBattle 结算两次（双扣血/双推进），且旧 rAF 对着已卸载的 canvas 永跑。
+ */
+let activeRenderer: BattleRenderer | null = null;
+
 export function renderBattle(root: HTMLElement, ctx: GameCtx, input: BattleInput): void {
+  activeRenderer?.destroy();
+  activeRenderer = null;
   const st = ctx.st;
   const node = PLANES[st.plane].nodes[st.node];
   const name = node.kind === 'battle' || node.kind === 'boss' ? node.battle.name : '';
@@ -57,6 +66,9 @@ export function renderBattle(root: HTMLElement, ctx: GameCtx, input: BattleInput
         h('button', {
           class: 'big-btn',
           onclick: () => {
+            // 结果卡只允许结算一次：重复点击/并发回调都不能二次扣血推进
+            if (activeRenderer !== renderer) return;
+            activeRenderer = null;
             renderer.destroy();
             ctx.onBattleDone(win, result.ticks, input.enemyActionLimit, snapshot.enemies.filter(e => e.alive).length, snapshot.allies.filter(a => !a.alive).length);
           }
@@ -64,5 +76,6 @@ export function renderBattle(root: HTMLElement, ctx: GameCtx, input: BattleInput
       )
     );
   }, input.backers ?? []);
+  activeRenderer = renderer;
   renderer.start();
 }

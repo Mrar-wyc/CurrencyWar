@@ -65,12 +65,19 @@ const FLOATER_LANES = [0, -38, 38];
  */
 export class BattleRenderer {
   private ctx: CanvasRenderingContext2D;
+  /** 静态场景预渲染缓存（构造期画一次，每帧 drawImage） */
+  private bg: HTMLCanvasElement | null = null;
+  /** 行动条名字截断结果缓存（key = 宽度|名字） */
+  private nameCache = new Map<string, string>();
   private views: UnitView[] = [];
   private byUid = new Map<string, UnitView>();
   private floaters: Floater[] = [];
   private flashes: HitFlash[] = [];
   private bolts: Bolt[] = [];
   private raf = 0;
+  /** 结算延时回调句柄与销毁标记（destroy 后不得再回调 onDone） */
+  private doneTimer = 0;
+  private destroyed = false;
   private lastTs = 0;
   private evIdx = 0;
   private evElapsed = 0;
@@ -98,12 +105,16 @@ export class BattleRenderer {
     private onDone: (win: boolean) => void,
     private backers: CombatUnit[] = []
   ) {
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
+    const rect = canvas.getBoundingClientRect();
+    // 舞台被缩放到手机视口时（fitStage 的 scale<1），位图无需按 1440 满分辨率光栅化
+    const shown = rect.width > 0 ? rect.width / W : 1;
+    const px = Math.min(1, shown) * Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.max(1, Math.round(W * px));
+    canvas.height = Math.max(1, Math.round(H * px));
     const ctx = canvas.getContext('2d')!;
-    ctx.scale(dpr, dpr);
+    ctx.scale(px, px);
     this.ctx = ctx;
+    this.bg = this.buildBackground(px);
     for (const u of [...allies, ...enemies]) {
       const layout = this.layoutPos(u.side, u.pos, u.boss);
       const v: UnitView = {
@@ -128,6 +139,75 @@ export class BattleRenderer {
       this.views.push(v);
       this.byUid.set(b.uid, v);
     }
+  }
+
+  /**
+   * 静态场景预渲染：夜空渐变 + 星点 + 竞技场地台/格线 + 敌我半场辉光。
+   * 这些内容每帧都一样，却是整帧填充像素的绝大部分（≈9.5M 设备像素/帧），
+   * 原先每帧重新光栅化一遍；现在只画一次，之后每帧一次 drawImage。
+   */
+  private buildBackground(px: number): HTMLCanvasElement {
+    const bg = document.createElement('canvas');
+    bg.width = Math.max(1, Math.round(W * px));
+    bg.height = Math.max(1, Math.round(H * px));
+    const ctx = bg.getContext('2d')!;
+    ctx.scale(px, px);
+    // 背景：深蓝紫夜空（官方战斗场景基调）
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, '#151138');
+    grad.addColorStop(0.6, '#221a4d');
+    grad.addColorStop(1, '#2a2058');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+    // 星点
+    ctx.fillStyle = 'rgba(255,255,255,0.28)';
+    for (let i = 0; i < 46; i++) {
+      const sx = (i * 307) % W;
+      const sy = (i * 173) % 300;
+      ctx.fillRect(sx, sy, 2, 2);
+    }
+    // 中央竞技场地台（透视椭圆 + 紫色发光格线，官方场地质感）
+    const cx = W / 2;
+    const cy = 400;
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 640, 218, 0, 0, Math.PI * 2);
+    const arena = ctx.createRadialGradient(cx, cy, 60, cx, cy, 640);
+    arena.addColorStop(0, 'rgba(122,110,240,0.30)');
+    arena.addColorStop(0.7, 'rgba(90,80,200,0.14)');
+    arena.addColorStop(1, 'rgba(70,60,170,0.05)');
+    ctx.fillStyle = arena;
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255,217,138,0.35)';
+    ctx.stroke();
+    // 场地格线：纵向射线 + 横向弧
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(180,170,255,0.14)';
+    for (let i = -4; i <= 4; i++) {
+      ctx.beginPath();
+      ctx.moveTo(cx + i * 135, cy - 210);
+      ctx.lineTo(cx + i * 185, cy + 214);
+      ctx.stroke();
+    }
+    for (const k of [-140, -70, 0, 70, 140]) {
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + k, 640 * (1 - Math.abs(k) / 320), 218 * (1 - Math.abs(k) / 320), 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    // 敌我半场微光（我左紫 / 敌右红）
+    const allyGlow = ctx.createRadialGradient(360, 380, 30, 360, 380, 460);
+    allyGlow.addColorStop(0, 'rgba(138,143,245,0.14)');
+    allyGlow.addColorStop(1, 'rgba(138,143,245,0)');
+    ctx.fillStyle = allyGlow;
+    ctx.fillRect(0, 0, W / 2, H);
+    const enemyGlow = ctx.createRadialGradient(W - 360, 380, 30, W - 360, 380, 460);
+    enemyGlow.addColorStop(0, 'rgba(255,120,120,0.10)');
+    enemyGlow.addColorStop(1, 'rgba(255,120,120,0)');
+    ctx.fillStyle = enemyGlow;
+    ctx.fillRect(W / 2, 0, W / 2, H);
+    ctx.restore();
+    return bg;
   }
 
   /** 我方左侧近景（大），敌人右侧远景（小）——官方 HSR 战斗视角 */
@@ -168,7 +248,11 @@ export class BattleRenderer {
     cancelAnimationFrame(this.raf);
     const end = this.events[this.events.length - 1];
     const win = end.t === 'end' ? end.win : false;
-    setTimeout(() => this.onDone(win), 60);
+    // 句柄要留着：否则 destroy() 之后这个延时回调仍会触发 onDone → 二次结算
+    this.doneTimer = window.setTimeout(() => {
+      this.doneTimer = 0;
+      if (!this.destroyed) this.onDone(win);
+    }, 60);
   }
 
   private enterEvent(idx: number): void {
@@ -182,9 +266,7 @@ export class BattleRenderer {
     this.evApplied = 0;
     const ev = this.current;
     if (ev.t === 'start') {
-      this.sp = ev.sp;
-      this.spMax = ev.spMax;
-      this.countdown = ev.countdown;
+      this.applyStart(ev);
       this.evDur = 400;
     } else if (ev.t === 'clock') {
       this.countdown = ev.countdown;
@@ -214,11 +296,27 @@ export class BattleRenderer {
   }
 
   /** 立即应用事件内的效果（跳过模式全量；事件播完兜底只补未应用部分，防飘字重复） */
+  /**
+   * 开战事件：战技点/倒计时 + 开局护盾。
+   * 引擎在事件之外就把 startShieldPct 的盾加好了，并把比例放在 start 事件里；
+   * 此前渲染器只取 sp/spMax/countdown，于是盾条要等该单位第一次挨打才出现
+   * （护盾羁绊/磐盾星徽/现金为王都看不见开局盾）。
+   */
+  private applyStart(ev: Extract<BattleEvent, { t: 'start' }>): void {
+    this.sp = ev.sp;
+    this.spMax = ev.spMax;
+    this.countdown = ev.countdown;
+    if (ev.shieldPct > 0) {
+      for (const v of this.views) {
+        if (v.side !== 'ally' || v.backend || !v.alive) continue;
+        v.shield = Math.round(v.maxHp * ev.shieldPct);
+      }
+    }
+  }
+
   private applyEventFully(ev: BattleEvent, fromIdx = 0): void {
     if (ev.t === 'start') {
-      this.sp = ev.sp;
-      this.spMax = ev.spMax;
-      this.countdown = ev.countdown;
+      this.applyStart(ev);
       return;
     }
     if (ev.t === 'clock') {
@@ -328,61 +426,8 @@ export class BattleRenderer {
 
   private draw(ts: number): void {
     const ctx = this.ctx;
-    // 背景：深蓝紫夜空（官方战斗场景基调）
-    const grad = ctx.createLinearGradient(0, 0, 0, H);
-    grad.addColorStop(0, '#151138');
-    grad.addColorStop(0.6, '#221a4d');
-    grad.addColorStop(1, '#2a2058');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, H);
-    // 星点
-    ctx.fillStyle = 'rgba(255,255,255,0.28)';
-    for (let i = 0; i < 46; i++) {
-      const sx = (i * 307) % W;
-      const sy = (i * 173) % 300;
-      ctx.fillRect(sx, sy, 2, 2);
-    }
-    // 中央竞技场地台（透视椭圆 + 紫色发光格线，官方场地质感）
-    const cx = W / 2;
-    const cy = 400;
-    ctx.save();
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, 640, 218, 0, 0, Math.PI * 2);
-    const arena = ctx.createRadialGradient(cx, cy, 60, cx, cy, 640);
-    arena.addColorStop(0, 'rgba(122,110,240,0.30)');
-    arena.addColorStop(0.7, 'rgba(90,80,200,0.14)');
-    arena.addColorStop(1, 'rgba(70,60,170,0.05)');
-    ctx.fillStyle = arena;
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = 'rgba(255,217,138,0.35)';
-    ctx.stroke();
-    // 场地格线：纵向射线 + 横向弧
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = 'rgba(180,170,255,0.14)';
-    for (let i = -4; i <= 4; i++) {
-      ctx.beginPath();
-      ctx.moveTo(cx + i * 135, cy - 210);
-      ctx.lineTo(cx + i * 185, cy + 214);
-      ctx.stroke();
-    }
-    for (const k of [-140, -70, 0, 70, 140]) {
-      ctx.beginPath();
-      ctx.ellipse(cx, cy + k, 640 * (1 - Math.abs(k) / 320), 218 * (1 - Math.abs(k) / 320), 0, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    // 敌我半场微光（我左紫 / 敌右红）
-    const allyGlow = ctx.createRadialGradient(360, 380, 30, 360, 380, 460);
-    allyGlow.addColorStop(0, 'rgba(138,143,245,0.14)');
-    allyGlow.addColorStop(1, 'rgba(138,143,245,0)');
-    ctx.fillStyle = allyGlow;
-    ctx.fillRect(0, 0, W / 2, H);
-    const enemyGlow = ctx.createRadialGradient(W - 360, 380, 30, W - 360, 380, 460);
-    enemyGlow.addColorStop(0, 'rgba(255,120,120,0.10)');
-    enemyGlow.addColorStop(1, 'rgba(255,120,120,0)');
-    ctx.fillStyle = enemyGlow;
-    ctx.fillRect(W / 2, 0, W / 2, H);
-    ctx.restore();
+    // 静态场景（夜空/星点/竞技场/格线/半场辉光）来自预渲染缓存，只做一次 drawImage
+    if (this.bg) ctx.drawImage(this.bg, 0, 0, W, H);
 
     // 竖排行动条（左上，官方样式）
     this.drawActionStrip();
@@ -448,8 +493,8 @@ export class BattleRenderer {
     // 战技点（右下，官方位置）
     this.drawSp();
 
-    // 特效
-    this.flashes = this.flashes.filter(f => ts - f.born < 300);
+    // 特效（三个数组平时多为空：先判长度再过滤，省掉每帧 3 次数组分配）
+    if (this.flashes.length) this.flashes = this.flashes.filter(f => ts - f.born < 300);
     for (const f of this.flashes) {
       const p = (ts - f.born) / 300;
       ctx.beginPath();
@@ -461,7 +506,7 @@ export class BattleRenderer {
       ctx.globalAlpha = 1;
     }
     // 后台支援弹道
-    this.bolts = this.bolts.filter(b => ts - b.born < 260);
+    if (this.bolts.length) this.bolts = this.bolts.filter(b => ts - b.born < 260);
     for (const b of this.bolts) {
       const p = (ts - b.born) / 260;
       const hx = b.x0 + (b.x1 - b.x0) * p;
@@ -477,7 +522,7 @@ export class BattleRenderer {
       ctx.globalAlpha = 1;
     }
     // 飘字
-    this.floaters = this.floaters.filter(f => ts - f.born < f.life);
+    if (this.floaters.length) this.floaters = this.floaters.filter(f => ts - f.born < f.life);
     for (const f of this.floaters) {
       const p = (ts - f.born) / f.life;
       ctx.font = `bold 24px ${FONT}`;
@@ -530,22 +575,29 @@ export class BattleRenderer {
       }
       ctx.font = `bold ${big ? 16 : 15}px ${FONT}`;
       ctx.fillStyle = '#fff';
-      // 名字按可用宽度截断（避免长名逼近我方圆），超出加省略号
+      // 名字按可用宽度截断（避免长名逼近我方圆），超出加省略号。
+      // 结果只取决于 (名字, 宽度)：记忆化后不再每帧调 30~60 次 measureText
       const maxW = big ? 165 : 150;
-      let label = v.name;
-      while (label.length > 1 && ctx.measureText(label).width > maxW) {
-        label = label.slice(0, -1);
-      }
-      if (label !== v.name) {
-        while (label.length > 1 && ctx.measureText(label + '…').width > maxW) {
-          label = label.slice(0, -1);
-        }
-        label += '…';
-      }
-      ctx.fillText(label, cx + r + 10, cy + 6);
+      ctx.fillText(this.truncateName(v.name, maxW), cx + r + 10, cy + 6);
       ctx.globalAlpha = 1;
       n++;
     }
+  }
+
+  /** 按像素宽度截断名字（带省略号），结果缓存复用 */
+  private truncateName(name: string, maxW: number): string {
+    const key = `${maxW}|${name}`;
+    const hit = this.nameCache.get(key);
+    if (hit !== undefined) return hit;
+    const ctx = this.ctx;
+    let label = name;
+    while (label.length > 1 && ctx.measureText(label).width > maxW) label = label.slice(0, -1);
+    if (label !== name) {
+      while (label.length > 1 && ctx.measureText(label + '…').width > maxW) label = label.slice(0, -1);
+      label += '…';
+    }
+    this.nameCache.set(key, label);
+    return label;
   }
 
   /** 战技点：右下角菱形宝石（官方位置，避开控制按钮区） */
@@ -697,8 +749,21 @@ export class BattleRenderer {
     ctx.restore();
   }
 
+  /** 幂等销毁：停掉动画帧与待触发的结算回调，释放视图与缓存 */
   destroy(): void {
     this.finished = true;
+    this.destroyed = true;
     cancelAnimationFrame(this.raf);
+    if (this.doneTimer) {
+      clearTimeout(this.doneTimer);
+      this.doneTimer = 0;
+    }
+    this.views = [];
+    this.byUid.clear();
+    this.floaters = [];
+    this.flashes = [];
+    this.bolts = [];
+    this.bg = null;
+    this.current = null;
   }
 }
