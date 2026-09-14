@@ -509,6 +509,82 @@ describe('节点推进', () => {
   });
 });
 
+describe('对局结算与经济修正（v0.2.2 深挖）', () => {
+  it('打输最终首领判负，不再白送通关胜利', () => {
+    const mk = () => {
+      const st = newMatchPrep();
+      st.plane = 2;
+      st.node = PLANES[2].nodes.length - 1; // 末位面最后一个节点（最终首领）
+      st.hp = 100;
+      return st;
+    };
+    // 输了最后一战：即便生命没耗尽也无路可走，判对局结束
+    const lose = mk();
+    resolveBattle(lose, false, 5, 20, 3);
+    expect(lose.phase).toBe('gameOver');
+    expect(lose.hp).toBeGreaterThan(0);
+    // 赢了仍然通关
+    const win = mk();
+    resolveBattle(win, true, 5, 20, 0);
+    expect(win.phase).toBe('victory');
+  });
+
+  it('牌池随卖出回补、随合成保持占用不变（此前只扣不还，角色会被抽干）', () => {
+    const id = 'march7th';
+    // 卖出 1★：归还 1 份
+    const a = newMatchPrep();
+    a.bench = [mkUnit(id, 1, null)];
+    const base = a.pool[id]!;
+    a.pool[id] = base - 1; // 模拟摇出/买下时已扣除
+    expect(sellUnit(a, a.bench[0].uid)).toBeNull();
+    expect(a.pool[id]).toBe(base);
+
+    // 卖出 2★：归还 3 份（占用按 3^(星-1) 计）
+    const b = newMatchPrep();
+    b.bench = [mkUnit(id, 2, null)];
+    b.pool[id] = base - 3;
+    expect(sellUnit(b, b.bench[0].uid)).toBeNull();
+    expect(b.pool[id]).toBe(base);
+
+    // 三个 1★ 合成 2★：占用总量不变（进入时 3 份 → 合成后仍是 3 份），且不凭空归还
+    const c = newMatchPrep();
+    c.gold = 999;
+    c.bench = [mkUnit(id, 1, null), mkUnit(id, 1, null)];
+    c.pool[id] = 5;
+    c.shop = [{ charId: id }, { charId: null }, { charId: null }, { charId: null }, { charId: null }];
+    const before = c.pool[id]!;
+    expect(buyShop(c, 0)).toBeNull();
+    expect(c.bench.filter(u => u.charId === id && u.star === 2)).toHaveLength(1);
+    expect(c.pool[id]).toBe(before);
+  });
+
+  it('四费晋升 + 满备战席：按实际入席星级判定合成，不再溢出到 10 席', () => {
+    const fillers = ['danheng', 'asta', 'qingque', 'tingyun', 'huohuo', 'sampo', 'blade'];
+    const setup = (existingStar: 1 | 2) => {
+      const st = newMatchPrep();
+      st.level = 9;
+      st.gold = 999;
+      st.strategies = ['promo4'];
+      st.strategyData.promo4 = 1;
+      // 席满 9：两张同名 4 费 + 7 个互不相同的 1 费（避免顺带触发合成）
+      st.bench = [mkUnit('yanqing', existingStar, null), mkUnit('yanqing', existingStar, null),
+        ...fillers.map(f => mkUnit(f, 1, null))];
+      st.shop = [{ charId: 'yanqing' }, { charId: null }, { charId: null }, { charId: null }, { charId: null }];
+      return st;
+    };
+    // 晋升会把新单位变成 2★，与两张 1★ 合不了 → 必须拒绝，不能溢出到第 10 席
+    const bad = setup(1);
+    expect(buyShop(bad, 0)).toBe('备战席已满');
+    expect(bad.bench.length).toBe(CFG.benchSlots);
+    expect(bad.strategyData.promo4).toBe(1); // 未消费
+    // 已有一张 2★ 时晋升来的 2★ 能合成 → 允许买入，合出 3★ 且不超席
+    const ok = setup(2);
+    expect(buyShop(ok, 0)).toBeNull();
+    expect(ok.bench.length).toBeLessThanOrEqual(CFG.benchSlots);
+    expect(ok.bench.some(u => u.charId === 'yanqing' && u.star === 3)).toBe(true);
+  });
+});
+
 describe('投资策略', () => {
   /** 构造一个处于策略选择阶段的对局 */
   function strategyPhase(offers: string[]): MatchState {

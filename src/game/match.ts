@@ -1,4 +1,4 @@
-import { charById, CHARACTERS } from '../data/characters';
+import { charById, CHARACTERS, POOL_COPIES } from '../data/characters';
 import { ADVANCED_EQUIPS, equipById, findCombine, randomBasicEquip, randomEmblem } from '../data/equipment';
 import { MATCH_CONFIG as CFG, PLANES } from '../data/stages';
 import { createPool, returnOffers, rollShop } from '../logic/shop';
@@ -75,6 +75,7 @@ function applyInstantEnvironment(st: MatchState, id: string): void {
     } else {
       const list = CHARACTERS.filter(c => c.cost === 1 && c.faction === faction);
       const charId = list[Math.floor(Math.random() * list.length)].id;
+      takeFromPool(st, charId, 1); // 凭空赠送也要扣池
       st.bench.push({ uid: `u${st.seq++}`, charId, star: 1, slot: null, equips: [] });
       tryMerge(st);
     }
@@ -141,17 +142,17 @@ export function buyShop(st: MatchState, idx: number): string | null {
   const free = st.freeBuys > 0;
   if (!free && st.gold < c.cost) return '金币不足';
   const promo4 = hasStrategy(st, 'promo4') && (st.strategyData.promo4 ?? 0) > 0 && c.cost === 4;
-  const willMerge = countOwnedSame(st, c.id, 1) >= 2 || (promo4 && countOwnedSame(st, c.id, 2) >= 2);
+  // 合成预判必须按「实际入席星级」算：四费晋升会让新单位直接以 2★ 入席，
+  // 若仍按 1★ 预判，满席时会判成“能合成”却合不了 → 备战席溢出到 10 且第 10 个不渲染
+  const incomingStar: 1 | 2 = promo4 ? 2 : 1;
+  const willMerge = countOwnedSame(st, c.id, incomingStar) >= 2;
   if (st.bench.length >= CFG.benchSlots && !willMerge) return '备战席已满';
   if (free) st.freeBuys--;
   else st.gold -= c.cost;
   offer.charId = null;
-  const unit: OwnedUnit = { uid: `u${st.seq++}`, charId: c.id, star: 1, slot: null, equips: [] };
+  const unit: OwnedUnit = { uid: `u${st.seq++}`, charId: c.id, star: incomingStar, slot: null, equips: [] };
   // 四费晋升：下一个 4 费直接 2★
-  if (promo4) {
-    unit.star = 2;
-    st.strategyData.promo4 = 0;
-  }
+  if (promo4) st.strategyData.promo4 = 0;
   st.bench.push(unit);
   tryMerge(st);
   return null;
@@ -209,11 +210,28 @@ export function sellValue(u: OwnedUnit): number {
   return c.cost * (u.star === 1 ? 1 : u.star === 2 ? 2 : 4);
 }
 
+/** 一个单位在牌池里占用的份数（3^(星-1)：合成不改变占用量，与主流自走棋同口径） */
+function copiesOf(star: number): number {
+  return star <= 1 ? 1 : star === 2 ? 3 : 9;
+}
+
+/** 牌池放回：所有「单位离场」的路径都走这里（出售/卖光策略/重组），避免只扣不还 */
+function returnToPool(st: MatchState, charId: string, star: number): void {
+  const max = POOL_COPIES[charById(charId).cost];
+  st.pool[charId] = Math.min(max, (st.pool[charId] ?? 0) + copiesOf(star));
+}
+
+/** 牌池取出：凭空生成单位的路径（策略赠予/环境概念股）必须扣池，否则池子与实际持有脱钩 */
+function takeFromPool(st: MatchState, charId: string, star: number): void {
+  st.pool[charId] = Math.max(0, (st.pool[charId] ?? 0) - copiesOf(star));
+}
+
 export function sellUnit(st: MatchState, uid: string): string | null {
   const u = findUnit(st, uid);
   if (!u) return '找不到该角色';
   st.gold += sellValue(u);
   st.inventory.push(...u.equips);
+  returnToPool(st, u.charId, u.star);
   st.bench = st.bench.filter(x => x.uid !== uid);
   st.board = st.board.filter(x => x.uid !== uid);
   return null;
@@ -419,6 +437,12 @@ export function resolveBattle(st: MatchState, win: boolean, ticks: number, limit
     st.phase = 'gameOver';
     return;
   }
+  // 打输最终首领：走完节点不等于通关。此前无论胜负都会 advanceNode 一路判 victory，
+  // 于是「输了最后一战」照样发晋升、加总胜场、解锁超频
+  if (!win && st.plane === PLANES.length - 1 && st.node === PLANES[st.plane].nodes.length - 1) {
+    st.phase = 'gameOver';
+    return;
+  }
   advanceNode(st);
 }
 
@@ -529,6 +553,9 @@ function applyInstantStrategy(st: MatchState, id: string): void {
         const next = pool[Math.floor(Math.random() * pool.length)];
         used.delete(u.charId);
         used.add(next.id);
+        // 换人：旧角色的份数退回池子，新角色的份数从池子取出（保持池子与实际持有一致）
+        returnToPool(st, u.charId, u.star);
+        takeFromPool(st, next.id, u.star);
         u.charId = next.id;
       }
       tryMerge(st);
@@ -540,6 +567,7 @@ function applyInstantStrategy(st: MatchState, id: string): void {
       for (const u of [...st.board, ...st.bench]) {
         gold += sellValue(u) * 2;
         st.inventory.push(...u.equips);
+        returnToPool(st, u.charId, u.star);
       }
       st.board = [];
       st.bench = [];
@@ -549,7 +577,10 @@ function applyInstantStrategy(st: MatchState, id: string): void {
     }
     // 人力重组（官方银色）：出售全部角色 → 获得 2星3费×1 + 2星2费×2 + 2星1费×2
     case 'layoff_all': {
-      for (const u of [...st.board, ...st.bench]) st.inventory.push(...u.equips);
+      for (const u of [...st.board, ...st.bench]) {
+        st.inventory.push(...u.equips);
+        returnToPool(st, u.charId, u.star);
+      }
       st.board = [];
       st.bench = [];
       const grants: { cost: number; star: 1 | 2; count: number }[] = [
@@ -561,6 +592,7 @@ function applyInstantStrategy(st: MatchState, id: string): void {
         for (let i = 0; i < g.count; i++) {
           const pool = CHARACTERS.filter(c => c.cost === g.cost);
           const c = pool[Math.floor(Math.random() * pool.length)];
+          takeFromPool(st, c.id, g.star); // 赠予也是从池子里拿
           st.bench.push({ uid: `u${st.seq++}`, charId: c.id, star: g.star, slot: null, equips: [] });
         }
       }
@@ -569,7 +601,10 @@ function applyInstantStrategy(st: MatchState, id: string): void {
     }
     // 现金为王（官方金色）：出售全部角色（不给金币），换取 3 场开战护盾
     case 'cash_is_king': {
-      for (const u of st.board) st.inventory.push(...u.equips);
+      for (const u of st.board) {
+        st.inventory.push(...u.equips);
+        returnToPool(st, u.charId, u.star);
+      }
       st.board = [];
       st.strategyData.cash_is_king = 3;
       break;
@@ -580,6 +615,7 @@ function applyInstantStrategy(st: MatchState, id: string): void {
       for (const u of [...st.board, ...st.bench]) {
         gold += sellValue(u) * 2;
         st.inventory.push(...u.equips);
+        returnToPool(st, u.charId, u.star);
       }
       st.board = [];
       st.bench = [];
