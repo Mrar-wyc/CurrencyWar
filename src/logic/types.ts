@@ -259,6 +259,8 @@ export type BattleEvent =
       name: string;
       sp: number;
       hits: HitInfo[];
+      /** 免费行动（击杀再动等）：不消耗行动值 */
+      noTick?: boolean;
     }
   | { t: 'clock'; countdown: number }
   | { t: 'end'; win: boolean; ticks: number; remaining: number };

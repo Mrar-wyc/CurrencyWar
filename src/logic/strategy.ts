@@ -127,14 +127,14 @@ export function strategyEnemyMult(st: MatchState): number {
 export interface StrategyBattleMods {
   /** 当头一棒：开战对最高血敌人造成 mult×最高攻击伤害，并施加 defPct 减防 */
   nuke?: { mult: number; defPct: number; turns: number };
-  /** 风暴骑士：前台 1 号位每次行动后自伤 maxHp 比例 */
+  /** 风暴骑士：开战时前台 1 号位受 maxHp 比例的固定伤害（一次） */
   firstSelfHarmPct?: number;
 }
 
 export function strategyBattleMods(st: MatchState): StrategyBattleMods {
   const mods: StrategyBattleMods = {};
   if (hasStrategy(st, 'head_bash')) mods.nuke = { mult: 10, defPct: -0.30, turns: 2 };
-  if (hasStrategy(st, 'storm_knight')) mods.firstSelfHarmPct = 0.08;
+  if (hasStrategy(st, 'storm_knight')) mods.firstSelfHarmPct = 0.70;
   return mods;
 }
 

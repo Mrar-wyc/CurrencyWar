@@ -186,7 +186,7 @@ export class BattleRenderer {
       this.evDur = 60;
     } else if (ev.t === 'act') {
       this.sp = ev.sp;
-      if (BattleRenderer.TICK_KINDS.has(ev.kind)) this.ticks++;
+      if (!ev.noTick && BattleRenderer.TICK_KINDS.has(ev.kind)) this.ticks++;
       this.evDur = 380 + ev.hits.length * 260;
       // 技能名横幅：普攻/战技/终结技/敌方技能/后台赋能/策略核爆
       if (ev.kind === 'basic' || ev.kind === 'skill' || ev.kind === 'ult' || ev.kind === 'enemy' || ev.kind === 'backend' || ev.kind === 'nuke') {

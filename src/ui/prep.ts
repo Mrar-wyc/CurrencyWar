@@ -1,6 +1,6 @@
 import { charById } from '../data/characters';
 import { affixById } from '../data/affixes';
-import { equipById } from '../data/equipment';
+import { equipById, findCombine } from '../data/equipment';
 import { MATCH_CONFIG as CFG, PLANES } from '../data/stages';
 import { GRADE_COLORS, GRADE_NAMES, strategyById } from '../data/strategies';
 import {
@@ -211,11 +211,13 @@ function inventoryPanel(ctx: AppCtx): HTMLElement {
       onclick: (ev: Event) => {
         ev.stopPropagation();
         const cur = ctx.uiSel();
-        if (cur?.kind === 'equip' && e.tier === 'basic' && cur.id !== id) {
+        // 两件简易装备（含同 id 的不同格）尝试合成
+        if (cur?.kind === 'equip' && e.tier === 'basic' && (cur.id !== id || cur.idx !== idx)) {
           const curE = equipById(cur.id);
           if (curE.tier === 'basic') {
+            const result = findCombine(cur.id, id);
             const err = combineEquips(st, cur.id, id);
-            toast(err ?? `合成成功：${equipById(id).name} → 已放入背包`);
+            toast(err ?? `合成成功：${result ? result.name : '？？？'} → 已放入背包`);
             ctx.setSel(null);
             ctx.refresh();
             return;

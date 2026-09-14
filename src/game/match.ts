@@ -251,7 +251,8 @@ export function unequipItem(st: MatchState, uid: string, slotIdx: number): strin
 
 export function combineEquips(st: MatchState, idA: string, idB: string): string | null {
   const ia = st.inventory.indexOf(idA);
-  const ib = st.inventory.indexOf(idB);
+  // 同 id 两件合成：必须取到两个不同索引，否则误删中间物品
+  const ib = idA === idB ? st.inventory.indexOf(idB, ia + 1) : st.inventory.indexOf(idB);
   if (ia < 0 || ib < 0) return '背包中缺少材料';
   const result = findCombine(idA, idB);
   if (!result) return '这两件装备无法合成';

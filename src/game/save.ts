@@ -1,4 +1,6 @@
-import { MATCH_CONFIG as CFG } from '../data/stages';
+import { MATCH_CONFIG as CFG, PLANES } from '../data/stages';
+import { ALL_EQUIPS } from '../data/equipment';
+import { CHARACTERS } from '../data/characters';
 import { STRATEGIES } from '../data/strategies';
 import type { MatchState } from '../logic/types';
 
@@ -25,8 +27,13 @@ export function loadSave(): SaveData {
     const merged = { ...defaultSave(), ...data };
     if (merged.current) {
       migrateMatch(merged.current);
-      if (merged.current.phase === 'battle' || merged.current.phase === 'gameOver' || merged.current.phase === 'victory') {
+      const ph = merged.current.phase;
+      if (ph === 'gameOver' || ph === 'victory') {
+        merged.current = null; // 终局不复活（防 0 血死局续档）
+      } else if (ph === 'battle') {
         merged.current.phase = 'prep';
+      } else if (ph !== 'prep' && ph !== 'reward' && ph !== 'strategy' && ph !== 'supplyResult') {
+        merged.current = null; // 未知 phase：弃档防软锁
       }
     }
     return merged;
@@ -50,6 +57,41 @@ function migrateMatch(cur: MatchState): void {
   cur.wealthGem = cur.wealthGem === true;
   cur.gemGoldTick = typeof cur.gemGoldTick === 'number' && Number.isFinite(cur.gemGoldTick) ? cur.gemGoldTick : 0;
   if (cur.phase === 'strategy' && cur.strategyOffers.length === 0) cur.phase = 'prep';
+  // 装备/角色 id 白名单：失效 id 会让 equipById/charById 抛异常崩坏界面
+  const equipOk = new Set(ALL_EQUIPS.map(e => e.id));
+  const charOk = new Set(CHARACTERS.map(c => c.id));
+  const filterIds = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && equipOk.has(x)) : [];
+  const filterUnits = (v: unknown): MatchState['board'] =>
+    Array.isArray(v)
+      ? v.filter((u): u is MatchState['board'][number] => {
+          if (!u || typeof u !== 'object') return false;
+          const o = u as Record<string, unknown>;
+          return typeof o.uid === 'string' && typeof o.charId === 'string' && charOk.has(o.charId)
+            && (o.star === 1 || o.star === 2 || o.star === 3)
+            && (o.equips === undefined || Array.isArray(o.equips));
+        })
+      : [];
+  cur.inventory = filterIds(cur.inventory);
+  cur.supplyItems = filterIds(cur.supplyItems);
+  cur.rewards = Array.isArray(cur.rewards)
+    ? cur.rewards.filter(r => {
+        if (!r || typeof r !== 'object') return false;
+        const o = r as unknown as Record<string, unknown>;
+        if (o.kind === 'gold') return typeof o.gold === 'number';
+        return o.kind === 'equip' && typeof o.equipId === 'string' && equipOk.has(o.equipId);
+      })
+    : [];
+  cur.board = filterUnits(cur.board);
+  cur.bench = filterUnits(cur.bench);
+  for (const u of [...cur.board, ...cur.bench]) u.equips = filterIds(u.equips);
+  // 节点坐标越界回起点
+  if (!Number.isInteger(cur.plane) || cur.plane < 0 || cur.plane >= PLANES.length
+    || !Number.isInteger(cur.node) || cur.node < 0 || cur.node >= PLANES[cur.plane].nodes.length) {
+    cur.plane = 0;
+    cur.node = 0;
+    if (cur.phase !== 'prep') cur.phase = 'prep';
+  }
 }
 
 export function writeSave(data: SaveData): void {
@@ -69,6 +111,9 @@ export function persistMatch(save: SaveData, st: MatchState): void {
     const clone = structuredClone(st);
     clone.phase = 'prep';
     save.current = clone;
+  } else {
+    // gameOver/victory：对局已结束，清空续档（防重载后 0 血复活死局）
+    save.current = null;
   }
   writeSave(save);
 }

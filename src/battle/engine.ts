@@ -68,6 +68,8 @@ export function simulateBattle(input: BattleInput): BattleResult {
   let ticks = 0;
   let win = false;
   const extraActions: string[] = [];
+  /** 击杀再动等免费行动标记：期间产生的 act 事件 noTick（渲染器不倒扣行动值） */
+  let inExtra = false;
 
   const aliveOf = (side: Side): CombatUnit[] => (side === 'ally' ? allies : enemies).filter(u => u.alive);
 
@@ -98,7 +100,7 @@ export function simulateBattle(input: BattleInput): BattleResult {
   }
 
   const pushAct = (uid: string, kind: Extract<BattleEvent, { t: 'act' }>['kind'], name: string, hits: HitInfo[]) => {
-    events.push({ t: 'act', uid, kind, name, sp, hits });
+    events.push(inExtra ? { t: 'act', uid, kind, name, sp, hits, noTick: true } : { t: 'act', uid, kind, name, sp, hits });
   };
 
   /** 免死金牌：敌方致死伤害保留 10% 生命，每敌限一次。返回 true 表示被保住 */
@@ -168,14 +170,6 @@ export function simulateBattle(input: BattleInput): BattleResult {
       if (has('heavy_steps') && target.alive) {
         target.nextActionAt += (AV / effSpd(target)) * 0.08;
       }
-      // 额外打击：按受击者每个空装备栏附加 6% 生命上限的真伤（无视减伤与护盾）
-      if (has('extra_strike') && target.alive) {
-        const slots = target.emptyEquipSlots ?? 0;
-        if (slots > 0) {
-          target.hp = Math.max(0, target.hp - Math.round(target.maxHp * 0.04 * slots));
-          if (target.hp <= 0 && !cheatDeathGuard(target)) target.alive = false;
-        }
-      }
     } else {
       // 能量逃逸：敌人受击时攻击者能量 -4
       if (has('energy_leak') && caster.side === 'ally' && caster.alive) {
@@ -198,6 +192,22 @@ export function simulateBattle(input: BattleInput): BattleResult {
       if (th.died) onDeath(target, caster);
     }
     return hit;
+  }
+
+  /** 额外打击：按受击者每个空装备栏附加 4% 生命上限的真伤（无视减伤与护盾），并入本次行动 hits */
+  function applyExtraStrike(target: CombatUnit, hits: HitInfo[]): void {
+    if (!has('extra_strike') || !target.alive) return;
+    const slots = target.emptyEquipSlots ?? 0;
+    if (slots <= 0) return;
+    const dmg = Math.round(target.maxHp * 0.04 * slots);
+    target.hp = Math.max(0, target.hp - dmg);
+    let died = false;
+    if (target.hp <= 0 && target.alive && !cheatDeathGuard(target)) {
+      target.alive = false;
+      died = true;
+    }
+    hits.push({ uid: target.uid, dmg, hpAfter: target.hp, shieldAfter: Math.round(target.shield), died });
+    if (died) onDeath(null, target);
   }
 
   function healUnit(target: CombatUnit, amount: number): HitInfo {
@@ -344,12 +354,14 @@ export function simulateBattle(input: BattleInput): BattleResult {
     if (mv.aoe) {
       for (const a of aliveOf('ally')) {
         hits.push(dealDamage(u, a, mv.mult));
+        applyExtraStrike(a, hits);
         anyAllyHit = true;
       }
     } else {
       const t = aliveOf('ally')[0];
       if (t) {
         hits.push(dealDamage(u, t, mv.mult));
+        applyExtraStrike(t, hits);
         anyAllyHit = true;
       }
     }
@@ -429,11 +441,15 @@ export function simulateBattle(input: BattleInput): BattleResult {
     } else if (actor.side === 'ally') {
       ticks++;
       allyAct(actor);
-      // 希儿击杀再动
+      // 希儿击杀再动（免费行动：事件标记 noTick，渲染器不倒扣行动值）
       if (extraActions.length && aliveOf('enemy').length) {
         const uid = extraActions.shift()!;
         const u2 = all.find(x => x.uid === uid);
-        if (u2 && u2.alive) allyAct(u2);
+        if (u2 && u2.alive) {
+          inExtra = true;
+          allyAct(u2);
+          inExtra = false;
+        }
       }
       // 治疗光环：每次己方行动后
       const regenFlags = aliveOf('ally').filter(a => tf.regenPct + a.unitFlags.regenPct > 0);

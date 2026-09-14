@@ -179,13 +179,10 @@ export function buildBattleInput(st: MatchState): BattleInput {
   const battle = currentBattle(st);
   const tf = computeTeamFlags(st.board);
   for (const u of st.board) {
-    for (const eid of u.equips) {
-      const e = equipById(eid);
-      if (e.scope === 'team') {
-        for (const [k, v] of Object.entries(e.flags)) {
-          (tf as unknown as Record<string, number>)[k] += v as number;
-        }
-      }
+    // 团队件全量合并；穿戴件中不属于 UnitFlags 的键（critRate/backPowerPct/startShieldPct 等）同样全队生效
+    const { team } = mergeEquips(u.equips);
+    for (const [k, v] of Object.entries(team)) {
+      (tf as unknown as Record<string, number>)[k] += v as number;
     }
   }
   // 投资策略：条件型全队加成 + 现金为王开战护盾
