@@ -47,18 +47,22 @@ describe('soak 不变量', () => {
   it('300 局机器人对局：状态始终合法且正常终止', { timeout: 300_000 }, () => {
     const N = 300;
     let wins = 0;
-    let finished = 0;
+    const ends: Record<string, number> = {};
     for (let i = 0; i < N; i++) {
       const r = playMatch(400, assertInvariants);
-      // 正常终止：要么通关要么生命归零（不会中途卡死）
+      ends[r.end] = (ends[r.end] ?? 0) + 1;
       expect(r.hp).toBeGreaterThanOrEqual(0);
-      finished++;
       if (r.win) wins++;
     }
-    expect(finished).toBe(N);
+    // 正常终止 = 通关或生命归零；stepCap/unknownPhase 是异常路径（步数上限疑似卡死、未知阶段）
+    expect(ends.stepCap ?? 0).toBe(0);
+    expect(ends.unknownPhase ?? 0).toBe(0);
+    // bot 有 8 起始金 + Lv1-3 全 1 费商店，结构上不可能上不了阵
+    expect(ends.noFront ?? 0).toBe(0);
+    expect((ends.victory ?? 0) + (ends.gameOver ?? 0)).toBe(N);
     // 宽区间：策略组合下不至于完全打不过，也不能毫无挑战
     expect(wins / N).toBeGreaterThan(0.4);
     expect(wins / N).toBeLessThan(0.98);
-    console.log(`[soak] ${N} 局: 胜率 ${((wins / N) * 100).toFixed(1)}%`);
+    console.log(`[soak] ${N} 局: 胜率 ${((wins / N) * 100).toFixed(1)}% 终止分布 ${JSON.stringify(ends)}`);
   });
 });

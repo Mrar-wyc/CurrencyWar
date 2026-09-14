@@ -71,6 +71,9 @@ export function botPrep(st: MatchState): void {
   }
 }
 
+/** 终止原因：前两个是正常终局，后三个是异常路径（诊断/回归断言用） */
+export type MatchEnd = 'victory' | 'gameOver' | 'noFront' | 'stepCap' | 'unknownPhase';
+
 export interface BotResult {
   win: boolean;
   hp: number;
@@ -78,17 +81,24 @@ export interface BotResult {
   battles: number;
   level: number;
   threeStars: number;
+  /** victory/gameOver=正常终局；noFront=bot 上不了阵；stepCap=步数上限（疑似卡死）；unknownPhase=未知阶段 */
+  end: MatchEnd;
+  /** 实际消耗的步数 */
+  steps: number;
 }
 
 export function playMatch(maxSteps = 400, onStep?: (st: MatchState) => void, overclock = false): BotResult {
   const st = newMatch(overclock);
+  const make = (win: boolean, end: MatchEnd, steps: number, hp = st.hp, plane = st.plane): BotResult => ({
+    win, hp, plane, battles: st.battlesWon + st.battlesLost, level: st.level, threeStars: st.threeStarsMade, end, steps
+  });
   for (let i = 0; i < maxSteps; i++) {
     onStep?.(st);
     switch (st.phase) {
       case 'prep': {
         botPrep(st);
         if (!st.board.some(u => u.slot?.row === 'front')) {
-          return { win: false, hp: st.hp, plane: st.plane, battles: st.battlesWon + st.battlesLost, level: st.level, threeStars: st.threeStarsMade };
+          return make(false, 'noFront', i);
         }
         const input = startBattle(st)!;
         const snapshot = structuredClone(input);
@@ -117,12 +127,12 @@ export function playMatch(maxSteps = 400, onStep?: (st: MatchState) => void, ove
         ackSupply(st);
         break;
       case 'victory':
-        return { win: true, hp: st.hp, plane: 3, battles: st.battlesWon + st.battlesLost, level: st.level, threeStars: st.threeStarsMade };
+        return make(true, 'victory', i + 1, st.hp, 3);
       case 'gameOver':
-        return { win: false, hp: 0, plane: st.plane, battles: st.battlesWon + st.battlesLost, level: st.level, threeStars: st.threeStarsMade };
+        return make(false, 'gameOver', i + 1, 0);
       default:
-        return { win: false, hp: st.hp, plane: st.plane, battles: st.battlesWon + st.battlesLost, level: st.level, threeStars: st.threeStarsMade };
+        return make(false, 'unknownPhase', i);
     }
   }
-  return { win: false, hp: st.hp, plane: st.plane, battles: st.battlesWon + st.battlesLost, level: st.level, threeStars: st.threeStarsMade };
+  return make(false, 'stepCap', maxSteps);
 }
