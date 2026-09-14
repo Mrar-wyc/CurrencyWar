@@ -17,18 +17,12 @@ function effSpd(u: CombatUnit): number {
   return Math.max(30, s);
 }
 
-function effAtk(u: CombatUnit): number {
-  let a = u.atk;
-  for (const b of u.buffs) if (b.atkPct) a *= 1 + b.atkPct;
-  a *= 1 + u.killStacks * u.unitFlags.onKillAtk;
-  a *= 1 + u.attackStacks * u.unitFlags.onHitAtk;
-  return a;
-}
-
 function effDef(u: CombatUnit): number {
   let d = u.def;
   for (const b of u.buffs) if (b.defPct) d *= 1 + b.defPct;
-  return d;
+  // 减防下限：HSR 式减防上限 100%。不钳位时叠加减防可把 def 压到 -320 以下，
+  // 伤害系数 1 - def/(def+320) 变负 → 攻击反而给对方回血（且 def === -320 时为 Infinity）
+  return Math.max(0, d);
 }
 
 /**
@@ -136,7 +130,7 @@ export function simulateBattle(input: BattleInput): BattleResult {
 
   function onDeath(killer: CombatUnit | null, victim: CombatUnit): void {
     if (killer && killer.side === 'ally' && killer.alive) {
-      if (killer.unitFlags.onKillAtk > 0) killer.killStacks = Math.min(3, killer.killStacks + 1);
+      if (onKillBonus(killer) > 0) killer.killStacks = Math.min(3, killer.killStacks + 1);
       if (killer.passive.type === 'killReset') extraActions.push(killer.uid);
     }
     // 复仇心切：非首领敌人阵亡时，其余敌人攻击 +8%（可叠加）
@@ -145,6 +139,21 @@ export function simulateBattle(input: BattleInput): BattleResult {
         if (e.alive && e !== victim) e.buffs.push({ atkPct: 0.08, turns: 9999 });
       }
     }
+  }
+
+  /**
+   * 击杀叠攻加成：装备（破晓之刃/破军星徽）写 unitFlags、团队来源（特邀专家·佩拉）写
+   * TeamFlags——此前只读前者，导致佩拉这条金色环境完全空转。
+   */
+  const onKillBonus = (u: CombatUnit): number =>
+    u.unitFlags.onKillAtk + (u.side === 'ally' ? tf.onKillAtk : 0);
+
+  function effAtk(u: CombatUnit): number {
+    let a = u.atk;
+    for (const b of u.buffs) if (b.atkPct) a *= 1 + b.atkPct;
+    a *= 1 + u.killStacks * onKillBonus(u);
+    a *= 1 + u.attackStacks * u.unitFlags.onHitAtk;
+    return a;
   }
 
   function dealDamage(caster: CombatUnit, target: CombatUnit, mult: number): HitInfo {
@@ -303,6 +312,11 @@ export function simulateBattle(input: BattleInput): BattleResult {
 
     if (kind === 'ult') {
       u.energy = 0;
+      // 神君：终结技「神君 +2 层」（数据里的 ultGain），封顶 max；此前只设不增，
+      // 导致这条 5 费角色的被动整局只触发一次、终结技文案落空
+      if (u.passive.type === 'shenjun') {
+        u.shenjunStacks = Math.min(u.passive.max, u.shenjunStacks + u.passive.ultGain);
+      }
     } else {
       u.energy = Math.min(u.maxEnergy, u.energy + (kind === 'skill' ? 30 : 20) * charge);
     }

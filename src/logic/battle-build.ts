@@ -52,7 +52,9 @@ export function buildAllyUnit(u: OwnedUnit, pos: number, tf: TeamFlags, extraUni
     atk: Math.round(c.base.atk * m * (1 + tf.atkPct) * (1 + uf.atkPct)),
     def: Math.round(c.base.def * m * (1 + tf.defPct) * (1 + uf.defPct)),
     spd: Math.round(c.base.spd * (1 + tf.spdPct) * (1 + uf.spdPct)),
-    critRate: c.critRate + tf.critRate,
+    // 注意：团队暴击加成只在引擎侧施加（dealDamage），此处不得再烘一次——
+    // 否则爆发羁绊/幸运星/破军星徽的暴击加成会被算成两倍（后台单位未烘，可作对照）
+    critRate: c.critRate,
     critDmg: c.critDmg,
     maxEnergy: c.maxEnergy,
     energy: Math.round(c.maxEnergy * uf.energyStart),

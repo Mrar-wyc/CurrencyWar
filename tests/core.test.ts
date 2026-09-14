@@ -1042,6 +1042,83 @@ describe('敌人词缀', () => {
     expect(base.taken).toBeGreaterThan(0); // 对照局确有受击
     expect(struck.taken).toBeGreaterThan(base.taken); // 每个空装备栏附加 4% 生命真伤
   });
+
+  it('团队暴击只在引擎施加一次（编译层不得再烘一次）', () => {
+    // 编译层留下基础暴击；团队加成（爆发羁绊/幸运星/破军星徽）由引擎统一施加。
+    // 两边都加会让加成翻倍（后台单位未烘，可作对照）。
+    const u = mkUnit('seele', 1, { row: 'front', index: 0 });
+    const built = buildAllyUnit(u, 0, { ...EMPTY_TEAM_FLAGS, critRate: 0.2 });
+    expect(built.critRate).toBeCloseTo(charById('seele').critRate);
+    // 引擎侧确实施加了团队暴击：拉满必定暴击、清零绝不暴击
+    const run = (tfCrit: number) => withFixedRandom(() => {
+      const a = ally('seele', 1);
+      const res = simulateBattle({
+        allies: [a], backers: [],
+        enemies: [mkEnemy('boss_p3', 3)],
+        spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 40,
+        teamFlags: { ...EMPTY_TEAM_FLAGS, critRate: tfCrit }
+      });
+      const hits = res.events.filter(ev => ev.t === 'act').flatMap(ev => (ev.t === 'act' ? ev.hits : []));
+      return hits.filter(h => h.crit).length;
+    });
+    expect(run(0)).toBe(0);
+    expect(run(0.9)).toBeGreaterThan(0);
+  });
+
+  it('减防有下限：极端减防不会把伤害变成负数（反过来给敌人回血）', () => {
+    // 不钳位时 def < -320 会让系数 1 - def/(def+320) 变负 → 攻击给敌人加血、永远打不死
+    const res = withFixedRandom(() => {
+      const e = mkEnemy('automaton_bear', 1);
+      e.def = -400; // 模拟极端叠加减防后的非法防御值
+      const r = simulateBattle({
+        allies: [ally('seele', 3)], backers: [],
+        enemies: [e],
+        spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 40,
+        teamFlags: { ...EMPTY_TEAM_FLAGS }
+      });
+      const dmg = r.events.filter(ev => ev.t === 'act').flatMap(ev => (ev.t === 'act' ? ev.hits : []))
+        .map(h => h.dmg ?? 0);
+      return { hp: e.hp, maxHp: e.maxHp, dmg, win: r.win };
+    });
+    expect(Math.min(...res.dmg)).toBeGreaterThanOrEqual(0); // 不出现负伤害
+    expect(res.hp).toBeLessThan(res.maxHp); // 敌人确实在掉血
+    expect(res.hp).toBeLessThanOrEqual(res.maxHp); // 也不会被“治疗”到超过上限
+    expect(res.win).toBe(true);
+  });
+
+  it('景元「神君」可按终结技叠层，不再整局只触发一次', () => {
+    // 神君触发时按「层数」打多段：初始 2 层 → 2 段；首动即终结技补 2 层 → 4 段。
+    // 修复前终结技不补层，两种情况都是 2 段（被动实际变成一次性）。
+    const firstShenjunHits = (energyFull: boolean) => withFixedRandom(() => {
+      const jy = ally('jingyuan', 1);
+      if (energyFull) jy.energy = jy.maxEnergy; // 首动即终结技
+      const res = simulateBattle({
+        allies: [jy], backers: [],
+        enemies: [mkEnemy('boss_p3', 3)],
+        spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 40,
+        teamFlags: { ...EMPTY_TEAM_FLAGS }
+      });
+      const ev = res.events.find(e => e.t === 'act' && e.kind === 'shenjun');
+      return ev && ev.t === 'act' ? ev.hits.length : 0;
+    });
+    expect(firstShenjunHits(false)).toBe(2); // 初始 2 层
+    expect(firstShenjunHits(true)).toBe(4); // 终结技 +2 层后 4 层（封顶 max=4）
+  });
+
+  it('特邀专家·佩拉（团队击杀叠攻）不再空转', () => {
+    const run = (tfOnKill: number) => withFixedRandom(() => {
+      const a = ally('seele', 3);
+      simulateBattle({
+        allies: [a], backers: [],
+        enemies: [mkEnemy('swarm_wing', 0.15), mkEnemy('swarm_wing', 0.15)],
+        spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 40,
+        teamFlags: { ...EMPTY_TEAM_FLAGS, onKillAtk: tfOnKill }
+      });
+      return a.killStacks;
+    });
+    expect(run(0)).toBe(0); // 无团队来源且无装备 → 不叠层
+    expect(run(0.10)).toBeGreaterThan(0); // 佩拉环境生效
+  });
 });
 
 // localStorage 桩（save 模块在 node 测试环境使用）
