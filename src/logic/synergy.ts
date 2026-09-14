@@ -1,5 +1,5 @@
 import { FACTION_TRAITS, SCHOOL_TRAITS, traitById } from '../data/traits';
-import { CHARACTERS, charById } from '../data/characters';
+import { charById } from '../data/characters';
 import { equipById } from '../data/equipment';
 import { EMPTY_TEAM_FLAGS } from './types';
 import type { MatchState, OwnedUnit, TeamFlags, TraitDef, TraitTier } from './types';
@@ -59,11 +59,6 @@ export function computeTeamFlags(board: OwnedUnit[]): TeamFlags {
     }
   }
   return flags;
-}
-
-/** 阵营内所有角色 id（图鉴用） */
-export function charsOfFaction(factionId: string): string[] {
-  return CHARACTERS.filter(c => c.faction === factionId).map(c => c.id);
 }
 
 export { traitById };

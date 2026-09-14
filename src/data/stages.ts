@@ -165,11 +165,3 @@ export const SHOP_ODDS: Record<number, number[]> = {
 };
 
 export const RANKS = ['黑铁', '青铜', '翠钢', '钴银', '冰肽', '紫金', '投资大师', '资本帝王', '财富造物主'];
-
-export function planeNodes(plane: number) {
-  return PLANES[plane].nodes;
-}
-
-export function currentNodesLeft(plane: number, node: number): number {
-  return PLANES[plane].nodes.length - node;
-}

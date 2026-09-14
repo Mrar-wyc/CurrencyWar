@@ -25,3 +25,6 @@ android/capacitor-cordova-android-plugins/
 .DS_Store
 Thumbs.db
 .ui-shots/
+
+# 安全扫描工作目录（Mimosa）
+.mimosa/

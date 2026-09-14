@@ -9,6 +9,7 @@ import {
   recallUnit, reroll, sellUnit, sellValue, startBattle, toggleLock, unequipItem
 } from '../game/match';
 import { hasStrategy, rerollCostOf } from '../logic/strategy';
+import { advisorsOf } from '../logic/environment';
 import { activeTraits, traitById } from '../logic/synergy';
 import { enemyById } from '../data/enemies';
 import type { OwnedUnit } from '../logic/types';
@@ -391,13 +392,15 @@ function intelPanel(ctx: AppCtx): HTMLElement {
     }
   }
   if (st.environments.length) {
+    // 随行顾问标记：统一走 advisorsOf，避免面板内联 advisor_ 前缀判断
+    const advisors = new Set(advisorsOf(st));
     panel.append(h('div', { class: 'panel-title' }, `投资环境 ×${st.environments.length}`));
     for (const id of st.environments) {
       const e = envById(id);
       panel.append(h('div', { class: 'intel-strategy' },
         h('span', { style: { color: GRADE_COLORS[e.grade] } }, `[${GRADE_NAMES[e.grade]}]`),
         ` ${e.name}`,
-        h('span', { class: 'hint', title: e.desc }, id.startsWith('advisor_') ? ' ·随行' : '')
+        h('span', { class: 'hint', title: e.desc }, advisors.has(id) ? ' ·随行' : '')
       ));
     }
   }
