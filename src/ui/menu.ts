@@ -1,4 +1,5 @@
 import { RANKS } from '../data/stages';
+import { writeSave } from '../game/save';
 import { h } from './dom';
 import { diamondSvg } from './icons';
 import type { AppCtx } from './ctx';
@@ -26,9 +27,9 @@ export function renderMenu(root: HTMLElement, ctx: AppCtx): void {
           save.overclockUnlocked
             ? h('button', {
                 class: `mid-btn ${save.overclockEnabled ? 'on' : ''}`,
-                onclick: () => { save.overclockEnabled = !save.overclockEnabled; ctx.refresh(); }
+                onclick: () => { save.overclockEnabled = !save.overclockEnabled; writeSave(save); ctx.refresh(); }
               }, save.overclockEnabled ? '⚡ 超频：开' : '⚡ 超频：关')
-            : null,
+            : h('div', { class: 'menu-stats', style: { fontSize: '13.5px' } }, '通关任意一局解锁超频模式'),
           h('div', { class: 'menu-row' },
             h('button', { class: 'mid-btn', onclick: () => ctx.showCodex() }, '📖 图鉴'),
             h('button', { class: 'mid-btn', onclick: () => ctx.showHelp() }, '❓ 玩法说明')
