@@ -1,5 +1,6 @@
 import { charById } from '../data/characters';
 import { affixById } from '../data/affixes';
+import { envById } from '../data/environments';
 import { equipById, findCombine } from '../data/equipment';
 import { MATCH_CONFIG as CFG, PLANES } from '../data/stages';
 import { GRADE_COLORS, GRADE_NAMES, strategyById } from '../data/strategies';
@@ -383,6 +384,17 @@ function intelPanel(ctx: AppCtx): HTMLElement {
       panel.append(h('div', { class: 'intel-strategy' },
         h('span', { style: { color: GRADE_COLORS[s.grade] } }, `[${GRADE_NAMES[s.grade]}]`),
         ` ${s.name}`
+      ));
+    }
+  }
+  if (st.environments.length) {
+    panel.append(h('div', { class: 'panel-title' }, `投资环境 ×${st.environments.length}`));
+    for (const id of st.environments) {
+      const e = envById(id);
+      panel.append(h('div', { class: 'intel-strategy' },
+        h('span', { style: { color: GRADE_COLORS[e.grade] } }, `[${GRADE_NAMES[e.grade]}]`),
+        ` ${e.name}`,
+        h('span', { class: 'hint', title: e.desc }, id.startsWith('advisor_') ? ' ·随行' : '')
       ));
     }
   }
