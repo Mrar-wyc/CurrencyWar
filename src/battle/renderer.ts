@@ -18,6 +18,8 @@ interface UnitView {
   y: number;
   r: number;
   dots: number;
+  /** 飘字出生序号（同单位连续跳字横向扇开用） */
+  floaterSeq?: number;
   /** 后台支援单位（画面下缘，不参战站位） */
   backend?: boolean;
 }
@@ -53,6 +55,9 @@ const W = 1440;
 const H = 674;
 
 const FONT = "'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif";
+
+/** 飘字横向扇开档位（0 居中，其余左右错开） */
+const FLOATER_LANES = [0, -38, 38];
 
 /**
  * 战斗事件流回放渲染器（Canvas 2D）——官方 HSR 布局：
@@ -280,8 +285,20 @@ export class BattleRenderer {
     void caster;
   }
 
+  /**
+   * 飘字出生位：贴在本体上并按出生次序横向扇开 + 交替升降。
+   * 原先固定落在头顶上方 50px，会正好压住上一排单位的角色名/血条数字（历史 P2）；
+   * 改到本体范围内后，飘字只覆盖自己的色块，既不叠字也不堆在同一锚点。
+   */
   private addFloater(v: UnitView, text: string, color: string): void {
-    this.floaters.push({ x: v.x + (Math.random() * 30 - 15), y: v.y - 50, text, color, born: performance.now(), life: 900 });
+    v.floaterSeq = (v.floaterSeq ?? 0) + 1;
+    const lane = FLOATER_LANES[(v.floaterSeq - 1) % FLOATER_LANES.length];
+    const lift = ((v.floaterSeq - 1) % 2) * v.r * 0.45;
+    this.floaters.push({
+      x: v.x + lane,
+      y: v.y + v.r * 0.35 - lift,
+      text, color, born: performance.now(), life: 900
+    });
   }
 
   private frame = (ts: number): void => {
