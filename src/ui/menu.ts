@@ -39,7 +39,7 @@ export function renderMenu(root: HTMLElement, ctx: AppCtx): void {
           `出战 ${save.totalRuns} 次 · 通关 ${save.totalWins} 次 · 最高连胜 ${save.bestStreak} · 累计 3★ ${save.totalThreeStars}`
         ),
         h('div', { class: 'menu-disclaimer' },
-          '同人作品，仅供个人学习交流 · 崩坏：星穹铁道 © miHoYo / HoYoverse'
+          `v${__APP_VERSION__} · 同人作品，仅供个人学习交流 · 崩坏：星穹铁道 © miHoYo / HoYoverse`
         )
       )
     )

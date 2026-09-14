@@ -7,8 +7,10 @@ android {
         applicationId "com.zcode.currencywars"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "0.1.5"
+        // 版本号需与 package.json / git tag 同步（versionCode 必须每次递增，
+        // 否则侧载更新不会被 Android 识别为升级——0.1.5 之后曾漏加 4 个版本）
+        versionCode 3
+        versionName "0.2.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
