@@ -314,11 +314,10 @@ export interface ShopOffer {
   charId: string | null;
 }
 
-export interface PendingReward {
-  kind: 'equip' | 'gold';
-  equipId?: string;
-  gold?: number;
-}
+/** 奖励节点候选：判别联合——`equipId`/`gold` 只在各自分支存在，免去消费点的 `!` 断言 */
+export type PendingReward =
+  | { kind: 'equip'; equipId: string }
+  | { kind: 'gold'; gold: number };
 
 export interface MatchState {
   phase: Phase;

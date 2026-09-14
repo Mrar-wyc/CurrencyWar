@@ -282,7 +282,6 @@ export class BattleRenderer {
       v.alpha = 0.18;
       if (instant) this.addFloater(v, '倒下', '#ff8888');
     }
-    void caster;
   }
 
   /**
@@ -437,7 +436,7 @@ export class BattleRenderer {
 
     // 单位
     for (const v of this.views) {
-      this.drawUnit(ctx, v, ts);
+      this.drawUnit(ctx, v);
     }
     // 后台支援栏标签
     if (this.backers.length) {
@@ -590,7 +589,7 @@ export class BattleRenderer {
     }
   }
 
-  private drawUnit(ctx: CanvasRenderingContext2D, v: UnitView, ts: number): void {
+  private drawUnit(ctx: CanvasRenderingContext2D, v: UnitView): void {
     const r = v.r;
     ctx.save();
     ctx.globalAlpha = v.alpha;
@@ -696,7 +695,6 @@ export class BattleRenderer {
       ix += 18;
     }
     ctx.restore();
-    void ts;
   }
 
   destroy(): void {

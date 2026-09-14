@@ -3,10 +3,10 @@ import { envById } from '../data/environments';
 import { pickEnvironment } from '../game/match';
 import { h } from './dom';
 import { gemSvg } from './icons';
-import type { AppCtx } from './ctx';
+import type { GameCtx } from './ctx';
 
 /** 投资环境三选一（开局与位面开始）：点击采纳，规则层全局修正 */
-export function renderEnvironment(root: HTMLElement, ctx: AppCtx): void {
+export function renderEnvironment(root: HTMLElement, ctx: GameCtx): void {
   const st = ctx.st;
   const cards = st.environmentOffers.map((id, i) => {
     const e = envById(id);

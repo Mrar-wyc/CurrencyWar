@@ -2,10 +2,10 @@ import { GRADE_COLORS, GRADE_NAMES, strategyById } from '../data/strategies';
 import { pickStrategy } from '../game/match';
 import { h } from './dom';
 import { gemSvg } from './icons';
-import type { AppCtx } from './ctx';
+import type { GameCtx } from './ctx';
 
 /** 投资策略节点：三选一（点击采纳，持续整局）——官方品质语言：银/金 */
-export function renderStrategy(root: HTMLElement, ctx: AppCtx): void {
+export function renderStrategy(root: HTMLElement, ctx: GameCtx): void {
   const st = ctx.st;
   const cards = st.strategyOffers.map((id, i) => {
     const s = strategyById(id);

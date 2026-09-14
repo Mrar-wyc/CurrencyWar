@@ -21,7 +21,6 @@ export interface FinishSummary {
 }
 
 export interface AppCtx {
-  st: MatchState;
   save: SaveData;
   /** 全量重绘当前界面 */
   refresh(): void;
@@ -42,11 +41,11 @@ export interface AppCtx {
   backToMenu(): void;
 }
 
-/** 界面级易变状态（不进存档） */
-export const ui: {
-  sel: Selection | null;
-  finishSummary: FinishSummary | null;
-} = {
-  sel: null,
-  finishSummary: null
-};
+/**
+ * 对局界面（备战/战斗/奖励/策略/环境/结算）用的上下文：`st` 一定非空。
+ *
+ * 菜单/图鉴/玩法说明只接 `AppCtx`，因此**在类型层面就读不到对局状态**——
+ * 此前 `st` 是必填字段且菜单阶段仍留着上一局的对象（`goMenu` 不清），
+ * 新写的菜单代码一旦读它就会拿到一份已脱离存档的旧状态。
+ */
+export type GameCtx = AppCtx & { st: MatchState };

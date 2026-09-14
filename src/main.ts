@@ -4,7 +4,7 @@ import { discardCurrent, finishMatch, loadSave, persistMatch } from './game/save
 import { newMatch, repairPhase, resolveBattle } from './game/match';
 import type { BattleInput } from './logic/battle-build';
 import type { MatchState } from './logic/types';
-import type { AppCtx, FinishSummary, Selection } from './ui/ctx';
+import type { AppCtx, FinishSummary, GameCtx, Selection } from './ui/ctx';
 import { renderMenu } from './ui/menu';
 import { renderPrep } from './ui/prep';
 import { renderBattle } from './ui/battle';
@@ -46,7 +46,6 @@ function requireSt(): MatchState {
 }
 
 const ctx: AppCtx = {
-  st: null!,
   save,
   refresh: render,
   goMenu: () => {
@@ -157,7 +156,8 @@ function renderUnsafe(): void {
     return;
   }
 
-  ctx.st = st;
+  // 对局界面共用一份「st 必非空」的上下文（GameCtx），菜单/图鉴/说明页拿不到对局状态
+  const gctx: GameCtx = { ...ctx, st };
 
   // 对局结束：一次性结算职级
   if ((st.phase === 'victory' || st.phase === 'gameOver') && !uiState.finishSummary) {
@@ -179,33 +179,33 @@ function renderUnsafe(): void {
   switch (st.phase) {
     case 'prep':
       persistMatch(save, st);
-      renderPrep(stage, ctx);
+      renderPrep(stage, gctx);
       break;
     case 'battle':
-      if (pendingBattle) renderBattle(stage, ctx, pendingBattle);
-      else renderPrep(stage, ctx);
+      if (pendingBattle) renderBattle(stage, gctx, pendingBattle);
+      else renderPrep(stage, gctx);
       break;
     case 'reward':
       persistMatch(save, st);
-      renderReward(stage, ctx);
+      renderReward(stage, gctx);
       break;
     case 'strategy':
       persistMatch(save, st);
-      renderStrategy(stage, ctx);
+      renderStrategy(stage, gctx);
       break;
     case 'environment':
       persistMatch(save, st);
-      renderEnvironment(stage, ctx);
+      renderEnvironment(stage, gctx);
       break;
     case 'supplyResult':
       persistMatch(save, st);
-      renderSupply(stage, ctx);
+      renderSupply(stage, gctx);
       break;
     case 'gameOver':
-      if (summary) renderGameOver(stage, ctx, summary);
+      if (summary) renderGameOver(stage, gctx, summary);
       break;
     case 'victory':
-      if (summary) renderVictory(stage, ctx, summary);
+      if (summary) renderVictory(stage, gctx, summary);
       break;
   }
 }

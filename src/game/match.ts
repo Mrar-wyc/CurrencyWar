@@ -158,18 +158,27 @@ export function buyShop(st: MatchState, idx: number): string | null {
   return null;
 }
 
-export function reroll(st: MatchState): string | null {
+/** 刷新可用性：按钮禁用态与 reroll 的守卫同源，避免两处判定漂移 */
+export function canReroll(st: MatchState): string | null {
   if (st.phase !== 'prep') return '当前不能刷新';
+  if (st.freeRerolls > 0) return null;
+  return st.gold < rerollCostOf(st) ? '金币不足' : null;
+}
+
+/** 买经验可用性：按钮禁用态与 buyExp 的守卫同源 */
+export function canBuyExp(st: MatchState): string | null {
+  if (st.phase !== 'prep') return '当前不能购买经验';
+  if (st.level >= CFG.maxLevel) return '已达到最高等级';
+  if (hasStrategy(st, 'struggle_protocol')) return st.hp <= CFG.struggleHpCost ? '生命不足' : null;
+  return st.gold < CFG.expCost ? '金币不足' : null;
+}
+
+export function reroll(st: MatchState): string | null {
+  const err = canReroll(st);
+  if (err) return err;
   // 免费刷新资源优先消耗
-  if (st.freeRerolls > 0) {
-    st.freeRerolls--;
-    returnOffers(st.pool, st.shop);
-    st.shop = rollShop(st.level, st.pool);
-    return null;
-  }
-  const cost = rerollCostOf(st);
-  if (st.gold < cost) return '金币不足';
-  st.gold -= cost;
+  if (st.freeRerolls > 0) st.freeRerolls--;
+  else st.gold -= rerollCostOf(st);
   returnOffers(st.pool, st.shop);
   st.shop = rollShop(st.level, st.pool);
   return null;
@@ -190,17 +199,11 @@ export function gainExp(st: MatchState, n: number): void {
 }
 
 export function buyExp(st: MatchState): string | null {
-  if (st.phase !== 'prep') return '当前不能购买经验';
-  if (st.level >= CFG.maxLevel) return '已达到最高等级';
+  const err = canBuyExp(st);
+  if (err) return err;
   // 奋斗协议（官方棱彩，暂以金色实装）：买经验改扣生命
-  if (hasStrategy(st, 'struggle_protocol')) {
-    if (st.hp <= 6) return '生命不足';
-    st.hp -= 6;
-    gainExp(st, CFG.expGain);
-    return null;
-  }
-  if (st.gold < CFG.expCost) return '金币不足';
-  st.gold -= CFG.expCost;
+  if (hasStrategy(st, 'struggle_protocol')) st.hp -= CFG.struggleHpCost;
+  else st.gold -= CFG.expCost;
   gainExp(st, CFG.expGain);
   return null;
 }
@@ -250,12 +253,15 @@ export function boardFull(st: MatchState): boolean {
   return st.board.length >= st.level;
 }
 
+/** 等级不足导致的位置提示（UI 与规则共用同一条文案，避免两处各写一句） */
+export const ERR_SLOT_LOCKED = '上阵位数不足，购买经验可提升';
+
 export function placeUnit(st: MatchState, uid: string, row: 'front' | 'back', index: number): string | null {
   if (st.phase !== 'prep') return '当前不能调整站位';
   // 物理网格 6 前台；等级未解锁但网格内的位置按"位数不足"提示
   if (row === 'front') {
     if (index >= CFG.frontSlots) return '前台位置不存在';
-    if (index >= frontCapacity(st)) return '上阵位数不足，购买经验可提升';
+    if (index >= frontCapacity(st)) return ERR_SLOT_LOCKED;
   }
   if (row === 'back' && index >= backCapacity(st)) return '后台位置不存在';
   const u = findUnit(st, uid);
@@ -373,7 +379,7 @@ function rollRewards(): PendingReward[] {
 /** 战斗结束结算：收入 → 扣血 → 推进节点 */
 export function resolveBattle(st: MatchState, win: boolean, ticks: number, limit: number, remaining: number, allyDeaths = 0): void {
   const node = PLANES[st.plane].nodes[st.node];
-  const interest = Math.min(CFG.interestCap, Math.floor(st.gold / 10));
+  const interest = Math.min(CFG.interestCap, Math.floor(st.gold / CFG.interestPer10));
   let income = CFG.baseIncome + interest;
   if (win) {
     st.winStreak++;
@@ -414,8 +420,6 @@ export function resolveBattle(st: MatchState, win: boolean, ticks: number, limit
     income += CFG.lossCompensation;
     st.hp -= node.kind === 'boss' ? CFG.loseHpBoss : CFG.loseHpNormal;
   }
-  // 无伤通关的一次性 pending 机制已废除（现改为常驻，见 win 分支）
-  if ((st.strategyData.no_damage ?? 0) > 0) st.strategyData.no_damage = 0;
   // 现金为王：护盾场数消耗
   if ((st.strategyData.cash_is_king ?? 0) > 0) st.strategyData.cash_is_king--;
   // 奋斗协议：首领战胜利回血 50（官方数值）
@@ -654,7 +658,7 @@ export function ackSupply(st: MatchState): void {
 /** 随机三件奖励的描述（UI 用） */
 export function rewardLabel(r: PendingReward): string {
   if (r.kind === 'gold') return `金币袋 +${r.gold}`;
-  const e = equipById(r.equipId!);
+  const e = equipById(r.equipId);
   const tierName = e.tier === 'basic' ? '简易' : e.tier === 'advanced' ? '进阶' : '星徽';
   return `${e.name}（${tierName}）`;
 }

@@ -3,13 +3,13 @@ import { equipById } from '../data/equipment';
 import { ackSupply, pickReward, rewardLabel } from '../game/match';
 import { h } from './dom';
 import { coinSvg, equipMark } from './icons';
-import type { AppCtx, FinishSummary } from './ctx';
+import type { GameCtx, FinishSummary } from './ctx';
 
-export function renderReward(root: HTMLElement, ctx: AppCtx): void {
+export function renderReward(root: HTMLElement, ctx: GameCtx): void {
   const st = ctx.st;
   const cards = st.rewards.map((r, i) => {
     const isEquip = r.kind === 'equip';
-    const e = isEquip ? equipById(r.equipId!) : null;
+    const e = r.kind === 'equip' ? equipById(r.equipId) : null;
     return h('div', {
       class: `reward-card ${e?.tier === 'advanced' ? 'adv' : ''} ${e?.tier === 'emblem' ? 'emblem' : ''}`,
       onclick: () => {
@@ -33,7 +33,7 @@ export function renderReward(root: HTMLElement, ctx: AppCtx): void {
   );
 }
 
-export function renderSupply(root: HTMLElement, ctx: AppCtx): void {
+export function renderSupply(root: HTMLElement, ctx: GameCtx): void {
   const st = ctx.st;
   root.append(
     h('div', { class: 'overlay-screen' },
@@ -57,7 +57,7 @@ export function renderSupply(root: HTMLElement, ctx: AppCtx): void {
   );
 }
 
-export function renderGameOver(root: HTMLElement, ctx: AppCtx, s: FinishSummary): void {
+export function renderGameOver(root: HTMLElement, ctx: GameCtx, s: FinishSummary): void {
   root.append(
     h('div', { class: 'overlay-screen end' },
       h('div', { class: 'overlay-title lose' }, '对局结束'),
@@ -74,7 +74,7 @@ export function renderGameOver(root: HTMLElement, ctx: AppCtx, s: FinishSummary)
   );
 }
 
-export function renderVictory(root: HTMLElement, ctx: AppCtx, s: FinishSummary): void {
+export function renderVictory(root: HTMLElement, ctx: GameCtx, s: FinishSummary): void {
   root.append(
     h('div', { class: 'overlay-screen end' },
       h('div', { class: 'overlay-title win' }, '🎉 通关胜利'),

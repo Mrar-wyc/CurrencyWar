@@ -1,5 +1,5 @@
 import { CHARACTERS, POOL_COPIES } from '../data/characters';
-import { SHOP_ODDS } from '../data/stages';
+import { MATCH_CONFIG as CFG, SHOP_ODDS } from '../data/stages';
 import type { ShopOffer } from './types';
 
 /** 初始化共享牌池 */
@@ -53,7 +53,7 @@ function pickChar(level: number, pool: Record<string, number>, used: Set<string>
 export function rollShop(level: number, pool: Record<string, number>, factionBias?: string): ShopOffer[] {
   const offers: ShopOffer[] = [];
   const used = new Set<string>();
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < CFG.shopSize; i++) {
     const id = pickChar(level, pool, used, factionBias);
     if (!id) {
       offers.push({ charId: null });

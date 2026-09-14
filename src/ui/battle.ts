@@ -3,31 +3,33 @@ import { BattleRenderer } from '../battle/renderer';
 import { MATCH_CONFIG as CFG, PLANES } from '../data/stages';
 import type { BattleInput } from '../logic/battle-build';
 import { h } from './dom';
-import type { AppCtx } from './ctx';
+import type { GameCtx } from './ctx';
 
-export function renderBattle(root: HTMLElement, ctx: AppCtx, input: BattleInput): void {
+export function renderBattle(root: HTMLElement, ctx: GameCtx, input: BattleInput): void {
   const st = ctx.st;
   const node = PLANES[st.plane].nodes[st.node];
   const name = node.kind === 'battle' || node.kind === 'boss' ? node.battle.name : '';
 
-  const canvas = h('canvas', { class: 'battle-canvas' }) as HTMLCanvasElement;
+  const canvas = h<HTMLCanvasElement>('canvas', { class: 'battle-canvas' });
   const overlay = h('div', { class: 'battle-overlay hidden' });
+  // 直接持有按钮引用：此前靠 querySelector + 断言，既掩盖了 null 也依赖声明顺序
+  let speed = 1;
+  const speedBtn = h('button', {
+    id: 'speed-btn',
+    onclick: () => {
+      speed = speed === 1 ? 2 : 1;
+      renderer.setSpeed(speed);
+      speedBtn.textContent = `⏩ ×${speed}`;
+    }
+  }, '⏩ ×1');
   const controls = h('div', { class: 'battle-controls' },
-    h('button', {
-      id: 'speed-btn',
-      onclick: () => {
-        speed = speed === 1 ? 2 : 1;
-        renderer.setSpeed(speed);
-        (controls.querySelector('#speed-btn') as HTMLElement).textContent = `⏩ ×${speed}`;
-      }
-    }, '⏩ ×1'),
+    speedBtn,
     h('button', {
       onclick: () => {
         renderer.skip();
       }
     }, '跳过 ⏭')
   );
-  let speed = 1;
 
   root.append(
     h('div', { class: 'battle-head' },

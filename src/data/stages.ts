@@ -127,7 +127,8 @@ export const MATCH_CONFIG = {
   expGain: 4,       // 买一次经验获得
   freeExpPerRound: 2,
   baseIncome: 5,
-  interestPer10: 1,
+  /** 每持有多少金币 +1 利息（官方：每 10 金 +1，上限见 interestCap） */
+  interestPer10: 10,
   interestCap: 5,
   /** 连胜奖励档位（官方：封顶 +3，docs §29） */
   winStreakBonus(streak: number): number {
@@ -142,6 +143,8 @@ export const MATCH_CONFIG = {
   /** 失败扣血 */
   loseHpNormal: 15,
   loseHpBoss: 30,
+  /** 奋斗协议（金色策略）：买经验改为消耗生命，此为其代价 */
+  struggleHpCost: 6,
   /** 职级评价 */
   rankGain(hpLeft: number): number {
     if (hpLeft >= 70) return 3;

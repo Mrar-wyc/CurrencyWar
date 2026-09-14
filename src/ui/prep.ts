@@ -1,12 +1,12 @@
-import { charById } from '../data/characters';
+import { charById, STAR_MULT } from '../data/characters';
 import { affixById } from '../data/affixes';
 import { envById } from '../data/environments';
 import { equipById, findCombine } from '../data/equipment';
 import { MATCH_CONFIG as CFG, PLANES } from '../data/stages';
 import { GRADE_COLORS, GRADE_NAMES, strategyById } from '../data/strategies';
 import {
-  backCapacity, buyExp, buyShop, combineEquips, equipItemTo, findUnit, frontCapacity, placeUnit,
-  recallUnit, reroll, sellUnit, sellValue, startBattle, toggleLock, unequipItem
+  ERR_SLOT_LOCKED, backCapacity, buyExp, buyShop, canBuyExp, canReroll, combineEquips, equipItemTo, findUnit,
+  frontCapacity, placeUnit, recallUnit, reroll, sellUnit, sellValue, startBattle, toggleLock, unequipItem
 } from '../game/match';
 import { hasStrategy, rerollCostOf } from '../logic/strategy';
 import { advisorsOf } from '../logic/environment';
@@ -15,7 +15,7 @@ import { enemyById } from '../data/enemies';
 import type { OwnedUnit } from '../logic/types';
 import { COST_COLORS, h, starText, toast } from './dom';
 import { coinSvg, enemyMark, heartSvg, hexTrait, lockSvg, rerollSvg, swordSvg, xpSvg } from './icons';
-import type { AppCtx } from './ctx';
+import type { GameCtx } from './ctx';
 
 const FACTION_SHORT: Record<string, string> = {
   express: '列车', xianzhou: '仙舟', belobog: '贝洛', stellaron: '猎手'
@@ -25,7 +25,7 @@ function tagNames(tags: string[]): string {
   return tags.map(t => traitById(t).name).join('/');
 }
 
-function nodeProgress(ctx: AppCtx): HTMLElement {
+function nodeProgress(ctx: GameCtx): HTMLElement {
   const st = ctx.st;
   const wrap = h('div', { class: 'node-progress' });
   PLANES.forEach((plane, pi) => {
@@ -44,7 +44,7 @@ function nodeProgress(ctx: AppCtx): HTMLElement {
   return wrap;
 }
 
-function unitCard(ctx: AppCtx, u: OwnedUnit, inBoard: boolean): HTMLElement {
+function unitCard(ctx: GameCtx, u: OwnedUnit, inBoard: boolean): HTMLElement {
   const c = charById(u.charId);
   const sel = ctx.uiSel();
   const selected = sel?.kind === 'unit' && sel.id === u.uid;
@@ -75,7 +75,7 @@ function unitCard(ctx: AppCtx, u: OwnedUnit, inBoard: boolean): HTMLElement {
   return card;
 }
 
-function shopRow(ctx: AppCtx): HTMLElement {
+function shopRow(ctx: GameCtx): HTMLElement {
   const st = ctx.st;
   const row = h('div', { class: 'shop-row' });
   st.shop.forEach((o, i) => {
@@ -103,7 +103,7 @@ function shopRow(ctx: AppCtx): HTMLElement {
   return row;
 }
 
-function boardRows(ctx: AppCtx): HTMLElement {
+function boardRows(ctx: GameCtx): HTMLElement {
   const st = ctx.st;
   const wrap = h('div', { class: 'board-rows' });
 
@@ -116,7 +116,7 @@ function boardRows(ctx: AppCtx): HTMLElement {
       class: `slot front ${u ? 'filled' : ''} ${i >= frontCapacity(st) ? 'locked' : ''}`,
       onclick: (e: Event) => {
         e.stopPropagation();
-        if (i >= frontCapacity(st)) { toast('提升等级解锁更多前台位'); return; }
+        if (i >= frontCapacity(st) && !ctx.uiSel()) { toast(ERR_SLOT_LOCKED); return; }
         handleSlotClick(ctx, 'front', i, u);
       }
     }, u ? unitCard(ctx, u, true) : h('div', { class: 'slot-empty' }, i >= frontCapacity(st) ? '🔒' : '+'));
@@ -151,7 +151,7 @@ function boardRows(ctx: AppCtx): HTMLElement {
   return wrap;
 }
 
-function handleSlotClick(ctx: AppCtx, row: 'front' | 'back', index: number, u: OwnedUnit | undefined): void {
+function handleSlotClick(ctx: GameCtx, row: 'front' | 'back', index: number, u: OwnedUnit | undefined): void {
   const st = ctx.st;
   const s = ctx.uiSel();
   if (s?.kind === 'unit') {
@@ -169,7 +169,7 @@ function handleSlotClick(ctx: AppCtx, row: 'front' | 'back', index: number, u: O
   }
 }
 
-function traitPanel(ctx: AppCtx): HTMLElement {
+function traitPanel(ctx: GameCtx): HTMLElement {
   const st = ctx.st;
   const panel = h('div', { class: 'trait-panel' });
   panel.append(h('div', { class: 'panel-title' }, '羁绊'));
@@ -193,7 +193,7 @@ function traitPanel(ctx: AppCtx): HTMLElement {
   return panel;
 }
 
-function inventoryPanel(ctx: AppCtx): HTMLElement {
+function inventoryPanel(ctx: GameCtx): HTMLElement {
   const st = ctx.st;
   const panel = h('div', { class: 'inv-panel' });
   panel.append(h('div', { class: 'panel-title' }, `装备背包 ×${st.inventory.length}`));
@@ -241,7 +241,7 @@ function skillLine(name: string, desc: string, cls: string): HTMLElement {
   return h('div', { class: `skill-line ${cls}` }, h('b', {}, name), ' ', desc);
 }
 
-function detailPanel(ctx: AppCtx): HTMLElement {
+function detailPanel(ctx: GameCtx): HTMLElement {
   const st = ctx.st;
   const s = ctx.uiSel();
   if (s?.kind === 'equip') {
@@ -263,7 +263,8 @@ function detailPanel(ctx: AppCtx): HTMLElement {
   const u = findUnit(st, s.id);
   if (!u) return intelPanel(ctx);
   const c = charById(u.charId);
-  const m = u.star === 1 ? 1 : u.star === 2 ? 1.8 : 3.2;
+  // 星级倍率取数据表的同一份（此前手抄 1.8/3.2，调参后详情面板会与实战不一致）
+  const m = STAR_MULT[u.star];
   return h('div', { class: 'detail-panel', onclick: (e: Event) => e.stopPropagation() },
     h('div', { class: 'panel-title' }, '角色详情'),
     h('div', { class: 'dp-head' },
@@ -303,7 +304,10 @@ function detailPanel(ctx: AppCtx): HTMLElement {
         onclick: () => {
           const free = firstFree(ctx, 'front');
           if (free < 0) { toast('前台已满'); return; }
-          placeUnit(st, u.uid, 'front', free);
+          // placeUnit 还可能因「上阵位数不足」拒绝（firstFree 找得到空格但等级不够）：
+          // 不弹它的返回值时按钮点了会毫无反应
+          const err = placeUnit(st, u.uid, 'front', free);
+          if (err) toast(err);
           ctx.refresh();
         }
       }, '上前台'),
@@ -311,7 +315,8 @@ function detailPanel(ctx: AppCtx): HTMLElement {
         onclick: () => {
           const free = firstFree(ctx, 'back');
           if (free < 0) { toast('后台已满'); return; }
-          placeUnit(st, u.uid, 'back', free);
+          const err = placeUnit(st, u.uid, 'back', free);
+          if (err) toast(err);
           ctx.refresh();
         }
       }, '上后台') : null,
@@ -328,7 +333,7 @@ function detailPanel(ctx: AppCtx): HTMLElement {
   );
 }
 
-function firstFree(ctx: AppCtx, row: 'front' | 'back'): number {
+function firstFree(ctx: GameCtx, row: 'front' | 'back'): number {
   const st = ctx.st;
   const cap = row === 'front' ? frontCapacity(st) : backCapacity(st);
   for (let i = 0; i < cap; i++) {
@@ -337,7 +342,7 @@ function firstFree(ctx: AppCtx, row: 'front' | 'back'): number {
   return -1;
 }
 
-function intelPanel(ctx: AppCtx): HTMLElement {
+function intelPanel(ctx: GameCtx): HTMLElement {
   const st = ctx.st;
   const node = PLANES[st.plane].nodes[st.node];
   const panel = h('div', { class: 'detail-panel' });
@@ -408,7 +413,7 @@ function intelPanel(ctx: AppCtx): HTMLElement {
   return panel;
 }
 
-export function renderPrep(root: HTMLElement, ctx: AppCtx): void {
+export function renderPrep(root: HTMLElement, ctx: GameCtx): void {
   const st = ctx.st;
   const node = PLANES[st.plane].nodes[st.node];
   const nodeName = node.kind === 'battle' || node.kind === 'boss' ? node.battle.name : '备战阶段';
@@ -418,9 +423,10 @@ export function renderPrep(root: HTMLElement, ctx: AppCtx): void {
   }
 
   // 顶栏：资源 + 商店操作（出战按钮移至棋盘右下角，官方位置）
-  const rerollDisabled = st.freeRerolls === 0 && st.gold < rerollCostOf(st);
+  // 可负担性统一由 match 侧判定（canReroll/canBuyExp），按钮禁用态与动作守卫不会漂移
+  const rerollDisabled = canReroll(st) !== null;
   const expHpMode = hasStrategy(st, 'struggle_protocol');
-  const expDisabled = st.level < CFG.maxLevel && (expHpMode ? st.hp <= 6 : st.gold < CFG.expCost);
+  const expDisabled = canBuyExp(st) !== null;
   const topbar = h('div', { class: 'topbar' },
     h('div', { class: 'tb-left' },
       h('span', { class: 'tb-item hp' }, heartSvg(19), `${st.hp}`),
@@ -450,7 +456,7 @@ export function renderPrep(root: HTMLElement, ctx: AppCtx): void {
         class: `tb-btn ${expDisabled ? 'disabled' : ''}`,
         onclick: () => { const err = buyExp(st); if (err) toast(err); ctx.refresh(); }
       }, xpSvg(15), st.level >= CFG.maxLevel ? '满级'
-        : expHpMode ? '经验 ❤6' : `经验 ♦${CFG.expCost}`)
+        : expHpMode ? `经验 ❤${CFG.struggleHpCost}` : `经验 ♦${CFG.expCost}`)
     )
   );
 
