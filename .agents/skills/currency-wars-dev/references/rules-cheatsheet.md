@@ -70,5 +70,10 @@
 - 难度展示：位面基础 0/10/20 + 词缀点 + 金策略 3/条（prep 情报面板，§23 近似展示层）
 - 平衡：纯数值词缀先小（20% 级），机制型词缀先例见调参历史
 
+## 超频模式与对手公司 ✅ 已实装（v0.2⑧下）
+- 超频：SaveData.overclockUnlocked/Enabled/Wins + MatchState.overclock；newMatch(overclock) 默认关（bot/soak 零影响）；buildBattleInput 敌×1.10 + 精选词缀组[vengeance/energy_leak/extra_strike/showdown/tough_skin]（倒计时压缩靠 showdown）；晋升 +1；menu ⚡ 开关（writeSave 立即持久化）；结算 ⚡ 徽章；难度 bot 定标 1/20（面向老手真人）
+- 对手公司：BattleNode.company 风味层（11 战斗节点配对官方 20 家），情报面板 🏢 行
+- 概念股加权：rollShop(level,pool,factionBias)/pickChar 同费候选权重 ×2.5；stockBiasOf(st) 注入 4 处调用
+
 ## 官方待实装体系（做对应路线项时查 content-library.md）
-星徽 22 枚全集（现 10）⬜、特权装备 ⬜、冶金炉合成 ⬜、投资环境 +74 条（现 16/90）⬜、对手公司 20 ⬜、词缀 +35 条（现 10/45）⬜、超频模式 ⬜、4★ ⬜、固定预算倒计时（官方口径）⬜、顾问商店招募版 ⬜、概念股刷新概率加权 ⬜
+星徽 22 枚全集（现 10）⬜、特权装备 ⬜、冶金炉合成 ⬜、投资环境 +74 条（现 16/90）⬜、对手公司机制化（现为风味）⬜、词缀 +35 条（现 10/45）⬜、4★ ⬜、固定预算倒计时（官方口径）⬜、顾问商店招募版 ⬜
