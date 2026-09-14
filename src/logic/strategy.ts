@@ -1,24 +1,35 @@
 import { CHARACTERS } from '../data/characters';
 import { MATCH_CONFIG as CFG } from '../data/stages';
-import { STRATEGIES, strategyById } from '../data/strategies';
+import { GRADE_POINTS, STRATEGIES, strategyById } from '../data/strategies';
 import { countTraits, traitById } from './synergy';
 import { EMPTY_TEAM_FLAGS } from './types';
 import type { MatchState, OwnedUnit, TeamFlags, UnitFlags } from './types';
+import type { StrategyDef, StrategyGrade } from '../data/strategies';
 
 /** 是否已采纳某策略 */
 export function hasStrategy(st: MatchState, id: string): boolean {
   return st.strategies.includes(id);
 }
 
-/** 投资策略三选一：每条独立按 银70%/金30% 摇档，同屏不重复 */
-export function rollStrategyOffers(): string[] {
+/** 棱彩档从位面二起才进入候选（官方有出现位面限制，此处近似为"位面二起"） */
+export const PRISM_FROM_PLANE = 1;
+
+/**
+ * 投资策略三选一：银 62% / 金 30% / 棱彩 8%，同屏不重复。
+ * `plane` 用于棱彩的位面门禁（位面一不出现棱彩）；池子不足时逐级回退到非棱彩、再到任意未用。
+ */
+export function rollStrategyOffers(plane = 0): string[] {
   const offers: string[] = [];
   const used = new Set<string>();
+  const unused = (g?: StrategyGrade): StrategyDef[] =>
+    STRATEGIES.filter(s => (g === undefined || s.grade === g) && !used.has(s.id));
   while (offers.length < 3) {
-    const grade: 'silver' | 'gold' = Math.random() < 0.7 ? 'silver' : 'gold';
-    const pool = STRATEGIES.filter(s => s.grade === grade && !used.has(s.id));
-    const fallback = STRATEGIES.filter(s => !used.has(s.id));
-    const list = pool.length ? pool : fallback;
+    const r = Math.random();
+    const grade: StrategyGrade = r < 0.62 ? 'silver' : r < 0.92 ? 'gold' : 'prism';
+    const prismAllowed = grade !== 'prism' || plane >= PRISM_FROM_PLANE;
+    let list = prismAllowed ? unused(grade) : [];
+    if (!list.length) list = unused().filter(s => s.grade !== 'prism');
+    if (!list.length) list = unused();
     if (!list.length) break;
     const picked = list[Math.floor(Math.random() * list.length)];
     used.add(picked.id);
@@ -111,15 +122,17 @@ export function strategyUnitMods(st: MatchState, u: OwnedUnit): Partial<UnitFlag
 
 /**
  * 敌人属性系数（生命/攻击共用）：
- * 难度削减 × 伟大征服增量 × 策略难度加成（官方：采纳策略抬高敌人难度，银+0/金+3，近似每条金 +4%）
+ * 难度削减 × 伟大征服增量 × 策略难度加成（官方 docs §32：银 +0 / 金 +3 / 棱彩 +6 难度点数）。
+ * 点数按"1 点 ≈ 1.33% 敌人属性"近似 → 每条金 +4%、每条棱彩 +8%；
+ * 换算基准直接取自 GRADE_POINTS，避免档位点数在两处各写一套。
  */
 export function strategyEnemyMult(st: MatchState): number {
   let mult = 1;
   if (hasStrategy(st, 'simple_mode')) mult -= 0.10;
   if (hasStrategy(st, 'difficulty_modifier')) mult -= 0.15;
   if (hasStrategy(st, 'great_conquest')) mult += 0.04 * st.winStreak;
-  const goldCount = st.strategies.filter(id => strategyById(id).grade === 'gold').length;
-  mult += 0.04 * goldCount;
+  const pts = st.strategies.reduce((sum, id) => sum + GRADE_POINTS[strategyById(id).grade], 0);
+  mult += (0.04 / GRADE_POINTS.gold) * pts;
   return Math.max(0.1, mult);
 }
 
@@ -129,12 +142,21 @@ export interface StrategyBattleMods {
   nuke?: { mult: number; defPct: number; turns: number };
   /** 风暴骑士：开战时前台 1 号位受 maxHp 比例的固定伤害（一次） */
   firstSelfHarmPct?: number;
+  /** 完美开局（棱彩）：行动值消耗不足该比例期间，我方伤害增益 */
+  earlyStrike?: { untilPct: number; dmgPct: number };
+  /** 爆仓（棱彩）：敌方生命低于该比例时被我方攻击直接斩杀 */
+  executeBelowPct?: number;
+  /** 藏一手（棱彩）：我方每场战斗首次致死免疫（保留 1 点生命） */
+  allyCheatDeath?: boolean;
 }
 
 export function strategyBattleMods(st: MatchState): StrategyBattleMods {
   const mods: StrategyBattleMods = {};
   if (hasStrategy(st, 'head_bash')) mods.nuke = { mult: 10, defPct: -0.30, turns: 2 };
   if (hasStrategy(st, 'storm_knight')) mods.firstSelfHarmPct = 0.70;
+  if (hasStrategy(st, 'perfect_start')) mods.earlyStrike = { untilPct: 0.4, dmgPct: 0.40 };
+  if (hasStrategy(st, 'blowout')) mods.executeBelowPct = 0.16;
+  if (hasStrategy(st, 'ace_in_hole')) mods.allyCheatDeath = true;
   return mods;
 }
 

@@ -50,7 +50,8 @@ export function simulateBattle(input: BattleInput): BattleResult {
     if (wEnemy <= 0) return input.enemyActionLimit;
     return Math.max(1, Math.round((input.enemyActionLimit * (wAlly + wEnemy)) / wEnemy));
   };
-  let lastClock = budget();
+  const fullBudget = budget();
+  let lastClock = fullBudget;
   // 敌人词缀（stages 节点配置，效果在引擎内判定）
   const affixes = input.affixes ?? [];
   const has = (id: string): boolean => affixes.includes(id);
@@ -64,6 +65,8 @@ export function simulateBattle(input: BattleInput): BattleResult {
   const extraActions: string[] = [];
   /** 击杀再动等免费行动标记：期间产生的 act 事件 noTick（渲染器不倒扣行动值） */
   let inExtra = false;
+  /** 藏一手（棱彩）：我方每场战斗只免死一次 */
+  let allyAceUsed = false;
 
   const aliveOf = (side: Side): CombatUnit[] => (side === 'ally' ? allies : enemies).filter(u => u.alive);
 
@@ -107,20 +110,25 @@ export function simulateBattle(input: BattleInput): BattleResult {
     return true;
   }
 
-  function applyDamage(target: CombatUnit, raw: number): HitInfo {
+  function applyDamage(target: CombatUnit, raw: number, pierce = false): HitInfo {
     let dmg = raw;
-    const reduce = target.unitFlags.dmgReduce + (target.side === 'ally' ? tf.dmgReduce : 0);
-    dmg *= 1 - Math.min(0.8, reduce);
-    let remain = dmg;
-    if (target.shield > 0) {
-      const absorbed = Math.min(target.shield, remain);
-      target.shield -= absorbed;
-      remain -= absorbed;
+    if (!pierce) {
+      const reduce = target.unitFlags.dmgReduce + (target.side === 'ally' ? tf.dmgReduce : 0);
+      dmg *= 1 - Math.min(0.8, reduce);
+      if (target.shield > 0) {
+        const absorbed = Math.min(target.shield, dmg);
+        target.shield -= absorbed;
+        dmg -= absorbed;
+      }
     }
-    target.hp = Math.max(0, target.hp - Math.round(remain));
+    target.hp = Math.max(0, target.hp - Math.round(dmg));
     let died = false;
     if (target.hp <= 0 && target.alive) {
-      if (!cheatDeathGuard(target)) {
+      // 藏一手（棱彩）：我方每场战斗首次致死免疫，保留 1 点生命（与敌方「免死金牌」对称）
+      if (target.side === 'ally' && mods.allyCheatDeath && !allyAceUsed) {
+        allyAceUsed = true;
+        target.hp = 1;
+      } else if (!cheatDeathGuard(target)) {
         target.alive = false;
         died = true;
       }
@@ -160,6 +168,10 @@ export function simulateBattle(input: BattleInput): BattleResult {
     let dmg = effAtk(caster) * mult;
     const def = effDef(target);
     dmg *= 1 - def / (def + 320);
+    // 完美开局（棱彩）：行动值消耗尚不足 untilPct 期间我方伤害增益（阈值按开战满预算，避免随减员漂移）
+    if (caster.side === 'ally' && mods.earlyStrike && ticks < fullBudget * mods.earlyStrike.untilPct) {
+      dmg *= 1 + mods.earlyStrike.dmgPct;
+    }
     let crit = false;
     const cr = caster.critRate + (caster.side === 'ally' ? tf.critRate : 0);
     if (rand() < cr) {
@@ -171,7 +183,14 @@ export function simulateBattle(input: BattleInput): BattleResult {
     if (caster.side === 'ally' && has('weakness') && (caster.emptyEquipSlots ?? 0) > 0) {
       dmg *= 0.85;
     }
-    const hit = applyDamage(target, dmg);
+    // 爆仓（棱彩）：敌方生命低于阈值时我方攻击直接斩杀——穿盾、无视减伤（同「额外打击」的真伤口径）
+    const pierce = !!(mods.executeBelowPct && caster.side === 'ally' && target.side === 'enemy'
+      && target.alive && target.hp < target.maxHp * mods.executeBelowPct);
+    if (pierce) {
+      target.shield = 0;
+      dmg = target.hp + 1; // 保证致死；后续走统一的死亡判定（免死金牌仍可保住）
+    }
+    const hit = applyDamage(target, dmg, pierce);
     hit.crit = crit;
     if (target.side === 'ally') {
       target.energy = Math.min(target.maxEnergy, target.energy + 10);

@@ -3,17 +3,19 @@ import { charById, CHARACTERS, POOL_COPIES } from '../src/data/characters';
 import { enemyById } from '../src/data/enemies';
 import { equipById, findCombine, ALL_EQUIPS, BASIC_EQUIPS, ADVANCED_EQUIPS, EMBLEM_EQUIPS } from '../src/data/equipment';
 import { AFFIXES, affixById } from '../src/data/affixes';
+import { GRADE_COLORS, GRADE_NAMES, GRADE_POINTS, STRATEGIES } from '../src/data/strategies';
 import { MATCH_CONFIG as CFG, PLANES, SHOP_ODDS } from '../src/data/stages';
 import { FACTION_TRAITS, SCHOOL_TRAITS } from '../src/data/traits';
 import { createPool } from '../src/logic/shop';
 import { simulateBattle } from '../src/battle/engine';
 import { buildAllyUnit, buildBackerUnit, buildBattleInput } from '../src/logic/battle-build';
 import {
-  advanceNode, backCapacity, buyShop, buyExp, combineEquips, equipItemTo, newMatch, pickEnvironment, pickStrategy,
-  placeUnit, recallUnit, repairPhase, reroll, resolveBattle, sellUnit, unequipItem, sellValue
+  advanceNode, backCapacity, buyShop, buyExp, combineEquips, equipItemTo, gainExp, maxLevelOf, newMatch,
+  pickEnvironment, pickStrategy, placeUnit, recallUnit, repairPhase, reroll, resolveBattle, sellUnit,
+  unequipItem, sellValue
 } from '../src/game/match';
 import { activeTraits, computeTeamFlags, traitById } from '../src/logic/synergy';
-import { rerollCostOf, rollStrategyOffers, strategyEnemyMult, strategyTeamFlags, strategyUnitMods } from '../src/logic/strategy';
+import { rerollCostOf, rollStrategyOffers, strategyEnemyMult, strategyTeamFlags, strategyUnitMods, type StrategyBattleMods } from '../src/logic/strategy';
 import { strategyById } from '../src/data/strategies';
 import { EMPTY_TEAM_FLAGS } from '../src/logic/types';
 import { defaultSave, discardCurrent, finishMatch, loadSave, migrateMatch, persistMatch, type SaveData } from '../src/game/save';
@@ -789,19 +791,22 @@ describe('投资策略', () => {
     expect(buyShop(st, st.shop.findIndex(o => o.charId))).toBe('金币不足');
   });
 
-  it('敌人数值系数：难度削减/伟大征服/策略难度加成', () => {
+  it('敌人数值系数：难度削减/伟大征服/策略难度加成（银0/金3/彩6 同源）', () => {
     const st = newMatchPrep();
     expect(strategyEnemyMult(st)).toBeCloseTo(1);
     st.strategies = ['simple_mode', 'difficulty_modifier'];
     expect(strategyEnemyMult(st)).toBeCloseTo(0.75);
+    // 伟大征服官方为棱彩：连胜奖励×3 的增量 +8%（2 连胜）+ 自身棱彩 +8%
     st.strategies = ['great_conquest'];
     st.winStreak = 2;
-    // 伟大征服 +8%，自身为金色策略 +4%
-    expect(strategyEnemyMult(st)).toBeCloseTo(1.12);
+    expect(strategyEnemyMult(st)).toBeCloseTo(1.16);
+    // 招财狗为银 +0，promo4 为金 +4%（1 点 ≈ 1.33%）
     st.strategies = ['lucky_dog', 'promo4'];
     st.winStreak = 0;
-    // 招财狗为银 +0，promo4 为金 +4%
     expect(strategyEnemyMult(st)).toBeCloseTo(1.04);
+    // 棱彩 +8%：与 GRADE_POINTS 同源，面板点数与敌人加成不会各算一套
+    st.strategies = ['blowout'];
+    expect(strategyEnemyMult(st)).toBeCloseTo(1 + (0.04 / GRADE_POINTS.gold) * GRADE_POINTS.prism);
   });
 });
 
@@ -1205,6 +1210,161 @@ const __lsStore = new Map<string, string>();
   removeItem: (k: string) => { __lsStore.delete(k); },
   clear: () => { __lsStore.clear(); }
 };
+
+describe('棱彩策略（v0.2.4）', () => {
+  it('档位与难度点数同源：每条策略都有颜色/名称/点数，棱彩只从位面二起入池', () => {
+    for (const s of STRATEGIES) {
+      expect(GRADE_COLORS[s.grade], `${s.id} 缺档位颜色`).toBeTruthy();
+      expect(GRADE_NAMES[s.grade], `${s.id} 缺档位名称`).toBeTruthy();
+      expect(GRADE_POINTS[s.grade], `${s.id} 缺难度点数`).toBeGreaterThanOrEqual(0);
+    }
+    expect(GRADE_POINTS.silver).toBe(0);
+    expect(GRADE_POINTS.prism).toBe(GRADE_POINTS.gold * 2); // 官方 金3/彩6
+    // 位面一不出现棱彩（官方有出现位面限制，此处近似为"位面二起"）
+    for (let i = 0; i < 200; i++) {
+      for (const id of rollStrategyOffers(0)) expect(strategyById(id).grade).not.toBe('prism');
+    }
+  });
+
+  it('完美开局：行动值前 40% 内我方伤害 ×1.4（定序列精确对照）', () => {
+    const firstHitDmg = (mods: StrategyBattleMods): number => withFixedRandom(() => {
+      const a = ally('seele', 1);
+      const res = simulateBattle({
+        allies: [a], backers: [],
+        enemies: [mkEnemy('boss_p3', 3)],
+        spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 40,
+        teamFlags: { ...EMPTY_TEAM_FLAGS }, strategyMods: mods
+      });
+      const act = res.events.find(e => e.t === 'act' && e.uid === a.uid);
+      return act && act.t === 'act' ? (act.hits[0].dmg ?? 0) : 0;
+    });
+    const base = firstHitDmg({});
+    const boosted = firstHitDmg({ earlyStrike: { untilPct: 0.4, dmgPct: 0.40 } });
+    expect(base).toBeGreaterThan(0);
+    expect(boosted).toBeGreaterThan(base);
+    expect(boosted / base).toBeCloseTo(1.4, 1);
+  });
+
+  it('爆仓：敌方生命低于 16% 时我方一击斩杀（穿盾无视减伤）', () => {
+    const kill = (mods: StrategyBattleMods): boolean => withFixedRandom(() => {
+      const e = mkEnemy('boss_p3', 3);
+      e.hp = Math.round(e.maxHp * 0.15); // 恰在斩杀线内
+      e.shield = 500; // 护盾也不能救它
+      simulateBattle({
+        allies: [ally('seele', 1)], backers: [],
+        enemies: [e],
+        spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 20,
+        teamFlags: { ...EMPTY_TEAM_FLAGS }, strategyMods: mods
+      });
+      return !e.alive;
+    });
+    expect(kill({}), '无爆仓时一击打不死（低伤 + 高血上限）').toBe(false);
+    expect(kill({ executeBelowPct: 0.16 }), '有爆仓时应被斩杀').toBe(true);
+  });
+
+  it('藏一手：我方每场战斗首次致死免疫（保留 1 血，仅一次）', () => {
+    const run = (mods: StrategyBattleMods) => withFixedRandom(() => {
+      const a = ally('seele', 1);
+      const res = simulateBattle({
+        allies: [a], backers: [],
+        enemies: [mkEnemy('boss_p3', 3)],
+        spStart: 3, spMax: 5, shieldPct: 0, enemyActionLimit: 60,
+        teamFlags: { ...EMPTY_TEAM_FLAGS }, strategyMods: mods
+      });
+      const saved = res.events.some(ev => ev.t === 'act'
+        && ev.hits.some(h => h.uid === a.uid && !h.died && h.hpAfter === 1));
+      const deathAct = res.events
+        .filter(ev => ev.t === 'act' && ev.kind === 'enemy')
+        .findIndex(ev => ev.t === 'act' && ev.hits.some(h => h.uid === a.uid && h.died));
+      return { saved, deathAct, alive: a.alive };
+    });
+    const base = run({});
+    const ace = run({ allyCheatDeath: true });
+    expect(base.saved, '无藏一手时不该出现"恰好剩 1 血"').toBe(false);
+    expect(ace.saved, '藏一手应触发并保留 1 血').toBe(true);
+    expect(ace.deathAct, '藏一手应把阵亡推迟到更晚').toBeGreaterThan(base.deathAct);
+  });
+
+  it('控制规模：上限降为 7、不倒挂、即时授予宝钻与金币', () => {
+    // 即时效果
+    const st = newMatchPrep();
+    st.phase = 'strategy';
+    st.strategyOffers = ['scale_control', 'lucky_dog', 'promo4'];
+    const gold0 = st.gold;
+    pickStrategy(st, 0);
+    expect(st.strategies).toContain('scale_control');
+    expect(st.gold - gold0).toBe(40);
+    expect(st.wealthGem).toBe(true);
+    // 上限降为 7：经验到 7 级即封顶
+    const a = newMatchPrep();
+    a.strategies = ['scale_control'];
+    (a as unknown as Record<string, number>).level = 7;
+    a.exp = 0;
+    expect(maxLevelOf(a)).toBe(7);
+    gainExp(a, 99);
+    expect(a.level).toBe(7);
+    expect(a.exp).toBe(0);
+    // 已有宝钻时折算 +15 金
+    const b = newMatchPrep();
+    b.wealthGem = true;
+    b.phase = 'strategy';
+    b.strategyOffers = ['scale_control'];
+    const g0 = b.gold;
+    pickStrategy(b, 0);
+    expect(b.gold - g0).toBe(55);
+    // 高等级选到不倒挂（否则会打破「上阵数 ≤ 等级」）
+    const c = newMatchPrep();
+    c.strategies = ['scale_control'];
+    (c as unknown as Record<string, number>).level = 9;
+    expect(maxLevelOf(c)).toBe(9);
+  });
+
+  it('买断制：利息归零，但每个节点 +4 经验', () => {
+    const goldAfterWin = (strategies: string[]): number => {
+      const st = newMatchPrep();
+      st.strategies = strategies;
+      st.gold = 100;
+      st.phase = 'battle';
+      resolveBattle(st, true, 5, 14, 0);
+      return st.gold;
+    };
+    // 100 金利息 5（上限），两种方案的差额应恰为利息
+    const withInterest = goldAfterWin([]);
+    const noInterest = goldAfterWin(['buyout']);
+    expect(withInterest - noInterest).toBe(5);
+
+    const e = newMatchPrep();
+    e.strategies = ['buyout'];
+    (e as unknown as Record<string, number>).level = 5;
+    e.exp = 0;
+    advanceNode(e);
+    expect(e.exp).toBe(4); // 每节点 +4 经验（5 级需 20，不会升级）
+  });
+
+  it('淘金客：每次刷新额外 +2 经验', () => {
+    const expAfterReroll = (strategies: string[]): number => {
+      const st = newMatchPrep();
+      st.strategies = strategies;
+      (st as unknown as Record<string, number>).level = 5;
+      st.exp = 0;
+      st.gold = 50;
+      reroll(st);
+      return st.exp;
+    };
+    expect(expAfterReroll([])).toBe(0);
+    expect(expAfterReroll(['gold_digger'])).toBe(2);
+  });
+
+  it('strategyBattleMods：三条棱彩战斗效果正确映射', () => {
+    const st = newMatchPrep();
+    expect(strategyBattleMods(st)).toEqual({});
+    st.strategies = ['perfect_start', 'blowout', 'ace_in_hole'];
+    const mods = strategyBattleMods(st);
+    expect(mods.earlyStrike).toEqual({ untilPct: 0.4, dmgPct: 0.40 });
+    expect(mods.executeBelowPct).toBe(0.16);
+    expect(mods.allyCheatDeath).toBe(true);
+  });
+});
 
 describe('存档迁移与防御', () => {
   it('非法装备/角色 id 按白名单过滤，不抛异常', () => {

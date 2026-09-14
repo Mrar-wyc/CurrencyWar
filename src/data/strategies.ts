@@ -1,12 +1,18 @@
 /**
- * 投资策略（三选一增益，银/金两档；棱彩档留待后续版本）。
- * 名称与机制方向整理自官方记录（docs §8/§16），具体数值官方未公开，
+ * 投资策略（三选一增益，银/金/棱彩三档）。
+ * 名称与机制方向整理自官方记录（docs §8/§16/§32），具体数值官方未公开，
  * 按项目"近似还原"原则自拟。效果实现集中在 src/logic/strategy.ts 与 match.ts。
+ *
+ * 难度口径（官方 docs §32）：银 +0 / 金 +3 / 棱彩 +6 难度点数；
+ * 我们近似为"1 点 ≈ 1.33% 敌人属性"（即每条金 +4%、每条棱彩 +8%，见 GRADE_POINTS +
+ * strategyEnemyMult）。官方棱彩有出现位面限制，我们近似为「位面二起才可能出现」。
  */
+export type StrategyGrade = 'silver' | 'gold' | 'prism';
+
 export interface StrategyDef {
   id: string;
   name: string;
-  grade: 'silver' | 'gold';
+  grade: StrategyGrade;
   desc: string;
 }
 
@@ -86,24 +92,58 @@ export const STRATEGIES: StrategyDef[] = [
     desc: '立即出售所有上阵角色（不给金币），换取之后 3 场战斗全队开战 25% 生命护盾。'
   },
   {
-    id: 'struggle_protocol', name: '奋斗协议', grade: 'gold',
-    desc: '购买经验改扣 6 点小队生命（不耗金币）；首领战胜利后回复 50 生命。（官方为棱彩档）'
+    id: 'struggle_protocol', name: '奋斗协议', grade: 'prism',
+    desc: '购买经验改扣 6 点小队生命（不耗金币）；首领战胜利后回复 50 生命。'
   },
   {
-    id: 'great_conquest', name: '伟大征服', grade: 'gold',
+    id: 'great_conquest', name: '伟大征服', grade: 'prism',
     desc: '连胜奖励 ×3，但每 1 连胜使敌人生命与攻击 +4%。'
+  },
+  // ============ 棱彩（官方：位面二起出现；每条额外抬高敌人难度） ============
+  {
+    id: 'perfect_start', name: '完美开局', grade: 'prism',
+    desc: '行动值消耗尚不足 40% 期间，我方伤害 +40%。'
+  },
+  {
+    id: 'blowout', name: '爆仓', grade: 'prism',
+    desc: '敌方生命低于 16% 时，我方攻击直接将其斩杀（无视护盾）。'
+  },
+  {
+    id: 'ace_in_hole', name: '藏一手', grade: 'prism',
+    desc: '我方每场战斗中首次受到致死伤害的单位免于倒下，保留 1 点生命。'
+  },
+  {
+    id: 'scale_control', name: '控制规模', grade: 'prism',
+    desc: '等级上限降为 7；立即获得财富宝钻与 40 金币（已有宝钻则改为 +15 金币）。'
+  },
+  {
+    id: 'buyout', name: '买断制', grade: 'prism',
+    desc: '不再获得利息收入；每个节点额外获得 4 经验。'
+  },
+  {
+    id: 'gold_digger', name: '淘金客', grade: 'prism',
+    desc: '每次刷新商店额外获得 2 经验。'
   }
 ];
 
-/** 档位颜色（UI 用） */
-export const GRADE_COLORS: Record<StrategyDef['grade'], string> = {
+/** 档位颜色（UI 用；棱彩与 style.css 的 .reward-card.strat.prism 同色） */
+export const GRADE_COLORS: Record<StrategyGrade, string> = {
   silver: '#b8c4d4',
-  gold: '#ffd166'
+  gold: '#ffd166',
+  prism: '#c77dff'
 };
 
-export const GRADE_NAMES: Record<StrategyDef['grade'], string> = {
+export const GRADE_NAMES: Record<StrategyGrade, string> = {
   silver: '银',
-  gold: '金'
+  gold: '金',
+  prism: '彩'
+};
+
+/** 官方难度点数（docs §32：银 +0 / 金 +3 / 彩 +6）——难度显示与敌人属性加成的唯一真源 */
+export const GRADE_POINTS: Record<StrategyGrade, number> = {
+  silver: 0,
+  gold: 3,
+  prism: 6
 };
 
 export function strategyById(id: string): StrategyDef {

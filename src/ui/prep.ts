@@ -3,10 +3,10 @@ import { affixById } from '../data/affixes';
 import { envById } from '../data/environments';
 import { equipById, findCombine } from '../data/equipment';
 import { MATCH_CONFIG as CFG, PLANES } from '../data/stages';
-import { GRADE_COLORS, GRADE_NAMES, strategyById } from '../data/strategies';
+import { GRADE_COLORS, GRADE_NAMES, GRADE_POINTS, strategyById } from '../data/strategies';
 import {
   ERR_SLOT_LOCKED, backCapacity, buyExp, buyShop, canBuyExp, canReroll, combineEquips, equipItemTo, findUnit,
-  frontCapacity, placeUnit, recallUnit, reroll, sellUnit, sellValue, startBattle, toggleLock, unequipItem
+  frontCapacity, maxLevelOf, placeUnit, recallUnit, reroll, sellUnit, sellValue, startBattle, toggleLock, unequipItem
 } from '../game/match';
 import { hasStrategy, rerollCostOf } from '../logic/strategy';
 import { advisorsOf } from '../logic/environment';
@@ -369,7 +369,7 @@ function intelPanel(ctx: GameCtx): HTMLElement {
     if (affixList.length) {
       const base = [0, 10, 20][st.plane] ?? 0;
       const affixPts = affixList.reduce((s, id) => s + affixById(id).points, 0);
-      const stratPts = st.strategies.reduce((s, id) => s + (strategyById(id).grade === 'gold' ? 3 : 0), 0);
+      const stratPts = st.strategies.reduce((s, id) => s + GRADE_POINTS[strategyById(id).grade], 0);
       panel.append(h('div', { class: 'intel-affixes' },
         h('span', { class: 'intel-diff' }, `💀 难度 ${base + affixPts + stratPts}`),
         ...affixList.map(id => {
@@ -432,7 +432,7 @@ export function renderPrep(root: HTMLElement, ctx: GameCtx): void {
       h('span', { class: 'tb-item hp' }, heartSvg(19), `${st.hp}`),
       h('span', { class: 'tb-item gold' }, coinSvg(19), `${st.gold}`),
       h('span', { class: 'tb-item' }, `Lv.${st.level}`,
-        st.level < CFG.maxLevel
+        st.level < maxLevelOf(st)
           ? h('span', { class: 'exp-wrap' },
             h('span', { class: 'exp-bar' },
               h('span', { class: 'exp-fill', style: { width: `${Math.min(100, Math.round(st.exp / CFG.expToNext[st.level] * 100))}%` } })),
@@ -455,7 +455,7 @@ export function renderPrep(root: HTMLElement, ctx: GameCtx): void {
       h('button', {
         class: `tb-btn ${expDisabled ? 'disabled' : ''}`,
         onclick: () => { const err = buyExp(st); if (err) toast(err); ctx.refresh(); }
-      }, xpSvg(15), st.level >= CFG.maxLevel ? '满级'
+      }, xpSvg(15), st.level >= maxLevelOf(st) ? '满级'
         : expHpMode ? `经验 ❤${CFG.struggleHpCost}` : `经验 ♦${CFG.expCost}`)
     )
   );

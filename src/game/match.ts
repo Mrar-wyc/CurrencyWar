@@ -165,10 +165,20 @@ export function canReroll(st: MatchState): string | null {
   return st.gold < rerollCostOf(st) ? '金币不足' : null;
 }
 
+/**
+ * 等级上限：控制规模（棱彩）把上限压到 7。
+ * 取 max(当前等级, 上限) 而非直接返回 7——否则在 9 级选到它会立刻打破
+ * 「上阵数 ≤ 等级」的不变量（棋盘上此时可能有 8~9 人）。
+ */
+export function maxLevelOf(st: MatchState): number {
+  const cap = hasStrategy(st, 'scale_control') ? 7 : CFG.maxLevel;
+  return Math.max(st.level, Math.min(CFG.maxLevel, cap));
+}
+
 /** 买经验可用性：按钮禁用态与 buyExp 的守卫同源 */
 export function canBuyExp(st: MatchState): string | null {
   if (st.phase !== 'prep') return '当前不能购买经验';
-  if (st.level >= CFG.maxLevel) return '已达到最高等级';
+  if (st.level >= maxLevelOf(st)) return '已达到最高等级';
   if (hasStrategy(st, 'struggle_protocol')) return st.hp <= CFG.struggleHpCost ? '生命不足' : null;
   return st.gold < CFG.expCost ? '金币不足' : null;
 }
@@ -181,6 +191,8 @@ export function reroll(st: MatchState): string | null {
   else st.gold -= rerollCostOf(st);
   returnOffers(st.pool, st.shop);
   st.shop = rollShop(st.level, st.pool);
+  // 淘金客（棱彩）：每次刷新额外 +2 经验（免费刷新同样生效）
+  if (hasStrategy(st, 'gold_digger')) gainExp(st, 2);
   return null;
 }
 
@@ -189,19 +201,20 @@ export function toggleLock(st: MatchState): void {
 }
 
 export function gainExp(st: MatchState, n: number): void {
-  if (st.level >= CFG.maxLevel) return;
+  const cap = maxLevelOf(st);
+  if (st.level >= cap) return;
   st.exp += n;
-  while (st.level < CFG.maxLevel && st.exp >= (CFG.expToNext[st.level] ?? Infinity)) {
+  while (st.level < cap && st.exp >= (CFG.expToNext[st.level] ?? Infinity)) {
     st.exp -= CFG.expToNext[st.level];
     st.level++;
   }
-  if (st.level >= CFG.maxLevel) st.exp = 0;
+  if (st.level >= cap) st.exp = 0;
 }
 
 export function buyExp(st: MatchState): string | null {
   const err = canBuyExp(st);
   if (err) return err;
-  // 奋斗协议（官方棱彩，暂以金色实装）：买经验改扣生命
+  // 奋斗协议（官方棱彩）：买经验改扣生命
   if (hasStrategy(st, 'struggle_protocol')) st.hp -= CFG.struggleHpCost;
   else st.gold -= CFG.expCost;
   gainExp(st, CFG.expGain);
@@ -379,7 +392,8 @@ function rollRewards(): PendingReward[] {
 /** 战斗结束结算：收入 → 扣血 → 推进节点 */
 export function resolveBattle(st: MatchState, win: boolean, ticks: number, limit: number, remaining: number, allyDeaths = 0): void {
   const node = PLANES[st.plane].nodes[st.node];
-  const interest = Math.min(CFG.interestCap, Math.floor(st.gold / CFG.interestPer10));
+  // 买断制（棱彩）：以利息换经验，故不再有持币利息
+  const interest = hasStrategy(st, 'buyout') ? 0 : Math.min(CFG.interestCap, Math.floor(st.gold / CFG.interestPer10));
   let income = CFG.baseIncome + interest;
   if (win) {
     st.winStreak++;
@@ -452,6 +466,8 @@ export function resolveBattle(st: MatchState, win: boolean, ticks: number, limit
 
 /** 推进到下一节点并设置阶段 */
 export function advanceNode(st: MatchState): void {
+  // 买断制（棱彩）：每个节点额外 +4 经验
+  if (hasStrategy(st, 'buyout')) gainExp(st, 4);
   // 超发货币（官方）：失去全部金币，5 个节点后返还「失去数额 + 70」
   if (hasStrategy(st, 'hyperinflation') && (st.strategyData.hyperinflation_nodes ?? 0) < 5) {
     st.strategyData.hyperinflation_nodes = (st.strategyData.hyperinflation_nodes ?? 0) + 1;
@@ -494,7 +510,7 @@ function enterCurrentNode(st: MatchState): void {
     st.supplyItems = [randomBasicEquip(), randomBasicEquip()];
     st.phase = 'supplyResult';
   } else if (node.kind === 'strategy') {
-    st.strategyOffers = rollStrategyOffers();
+    st.strategyOffers = rollStrategyOffers(st.plane);
     st.phase = 'strategy';
   } else {
     // 财富宝钻：每 3 个备战阶段 +1 金
@@ -636,6 +652,16 @@ function applyInstantStrategy(st: MatchState, id: string): void {
     // 四费晋升：标记待定，下一次购买 4 费时消费
     case 'promo4':
       st.strategyData.promo4 = 1;
+      break;
+    // 控制规模（棱彩）：上限降为 7（由 maxLevelOf 生效），立即给宝钻与 40 金
+    case 'scale_control':
+      st.gold += 40;
+      if (!st.wealthGem) {
+        st.wealthGem = true;
+        st.gemNew = true;
+      } else {
+        st.gold += 15; // 已有宝钻时折算（同深井角斗场的处理）
+      }
       break;
   }
 }
