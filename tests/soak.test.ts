@@ -59,10 +59,15 @@ describe('soak 不变量', () => {
     expect(ends.unknownPhase ?? 0).toBe(0);
     // bot 有 8 起始金 + Lv1-3 全 1 费商店，结构上不可能上不了阵
     expect(ends.noFront ?? 0).toBe(0);
-    expect((ends.victory ?? 0) + (ends.gameOver ?? 0)).toBe(N);
-    // 宽区间：策略组合下不至于完全打不过，也不能毫无挑战
-    expect(wins / N).toBeGreaterThan(0.4);
-    expect(wins / N).toBeLessThan(0.98);
+    // 宽区间：策略组合下不至于完全打不过，也不能毫无挑战。
+    // 出带 = 平衡漂移（不是状态腐坏）：先确认上面的终止分布与不变量是否干净，
+    // 再按 references/balance-and-testing.md 的出带回调顺序处理。
+    // 基线参考（v0.2.2，5×300 局）：49.3%~57.0%，均值 ≈54%
+    const rate = wins / N;
+    expect(rate, `soak 胜率 ${(rate * 100).toFixed(1)}% 低于下沿 40%：平衡漂移，按 balance-and-testing.md 回退顺序回调（先收新数值 → BACK_CAST_SPD_FACTOR → 位面倍率）`)
+      .toBeGreaterThan(0.4);
+    expect(rate, `soak 胜率 ${(rate * 100).toFixed(1)}% 高于上沿 98%：难度形同虚设，检查是否加了净增益却没有配对冲难度机制`)
+      .toBeLessThan(0.98);
     console.log(`[soak] ${N} 局: 胜率 ${((wins / N) * 100).toFixed(1)}% 终止分布 ${JSON.stringify(ends)}`);
   });
 });

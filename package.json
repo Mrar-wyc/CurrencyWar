@@ -1,7 +1,7 @@
 {
   "name": "currency-wars-autocchess",
   "private": true,
-  "version": "0.2.2",
+  "version": "0.2.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -18,6 +18,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^7.4.3",
+    "jsdom": "^30.0.1",
     "typescript": "^5.8.3",
     "vite": "^7.1.2",
     "vitest": "^3.2.4"

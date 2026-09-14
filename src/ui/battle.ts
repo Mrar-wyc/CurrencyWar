@@ -66,7 +66,7 @@ export function renderBattle(root: HTMLElement, ctx: GameCtx, input: BattleInput
         h('button', {
           class: 'big-btn',
           onclick: () => {
-            // 结果卡只允许结算一次：重复点击/并发回调都不能二次扣血推进
+            // 结果卡只允许结算一次（幂等：重复点击/并发回调都不得二次推进节点）
             if (activeRenderer !== renderer) return;
             activeRenderer = null;
             renderer.destroy();
