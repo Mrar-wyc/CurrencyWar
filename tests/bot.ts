@@ -4,8 +4,8 @@ import { MATCH_CONFIG as CFG } from '../src/data/stages';
 import { simulateBattle } from '../src/battle/engine';
 import {
   ackSupply, buyExp, buyShop, combineEquips, equipItemTo, newMatch, pickReward,
-  pickStrategy, placeUnit, recallUnit, reroll, startBattle, resolveBattle
-} from '../src/game/match';
+  pickStrategy, placeUnit, recallUnit, reroll, startBattle, resolveBattle,
+  pickEnvironment } from '../src/game/match';
 import type { MatchState } from '../src/logic/types';
 
 /** 稳健策略偏好（bot 与 diag 共用，防两处漂移） */
@@ -100,6 +100,11 @@ export function playMatch(maxSteps = 400, onStep?: (st: MatchState) => void): Bo
         let idx = st.rewards.findIndex(r => r.kind === 'equip' && equipById(r.equipId!).tier === 'advanced');
         if (idx < 0) idx = st.rewards.findIndex(r => r.kind === 'equip');
         pickReward(st, idx >= 0 ? idx : 0);
+        break;
+      }
+      case 'environment': {
+        // 环境三选一：取第一个（bot 不挑品质）
+        pickEnvironment(st, 0);
         break;
       }
       case 'strategy': {

@@ -4,6 +4,7 @@ import { MATCH_CONFIG as CFG, PLANES } from '../data/stages';
 import { createPool, returnOffers, rollShop } from '../logic/shop';
 import { buildBattleInput } from '../logic/battle-build';
 import { hasStrategy, rerollCostOf, rollStrategyOffers } from '../logic/strategy';
+import { environmentTeamFlags, hasEnvironment, rollEnvironmentOffers } from '../logic/environment';
 import type { BattleInput } from '../logic/battle-build';
 import type { MatchState, OwnedUnit, PendingReward } from '../logic/types';
 
@@ -32,6 +33,9 @@ export function newMatch(): MatchState {
     strategies: [],
     strategyOffers: [],
     strategyData: {},
+    environments: [],
+    environmentOffers: [],
+    environmentData: {},
     freeRerolls: 0,
     freeBuys: 0,
     wealthGem: false,
@@ -39,7 +43,55 @@ export function newMatch(): MatchState {
     seq: 1
   };
   st.shop = rollShop(st.level, st.pool);
+  // 官方开局投资环境三选一（先于首个备战阶段）
+  st.environmentOffers = rollEnvironmentOffers();
+  st.phase = 'environment';
   return st;
+}
+
+/** 采纳投资环境（三选一）：应用即时效果后进入备战（不推进节点；环境只出现在开局与位面开始） */
+export function pickEnvironment(st: MatchState, idx: number): void {
+  if (st.phase !== 'environment') return;
+  const id = st.environmentOffers[idx];
+  if (!id) return;
+  st.environments.push(id);
+  st.environmentOffers = [];
+  applyInstantEnvironment(st, id);
+  st.phase = 'prep';
+  autoRefreshShop(st);
+}
+
+/** 环境的一次性效果（持续效果在 environmentTeamFlags 与 resolveBattle/advanceNode/gainExp 各锚点） */
+function applyInstantEnvironment(st: MatchState, id: string): void {
+  const stockFaction: Record<string, string> = {
+    stock_express: 'express', stock_xianzhou: 'xianzhou', stock_belobog: 'belobog', stock_stellaron: 'stellaron'
+  };
+  const faction = stockFaction[id];
+  if (faction) {
+    // 备战席满时角色折算 2 金（防超员破坏 bench 容量约束）
+    if (st.bench.length >= CFG.benchSlots) {
+      st.gold += 2;
+    } else {
+      const list = CHARACTERS.filter(c => c.cost === 1 && c.faction === faction);
+      const charId = list[Math.floor(Math.random() * list.length)].id;
+      st.bench.push({ uid: `u${st.seq++}`, charId, star: 1, slot: null, equips: [] });
+      tryMerge(st);
+    }
+    st.inventory.push(randomBasicEquip());
+    return;
+  }
+  switch (id) {
+    case 'money_printing':
+      st.gold += [6, 8, 12][st.plane] ?? 6;
+      break;
+    case 'fixed_fund':
+      gainExp(st, 4);
+      st.freeRerolls += 2;
+      break;
+    case 'long_term':
+      st.environmentData.long_term = 4;
+      break;
+  }
 }
 
 export function findUnit(st: MatchState, uid: string): OwnedUnit | undefined {
@@ -317,6 +369,25 @@ export function resolveBattle(st: MatchState, win: boolean, ticks: number, limit
     if (hasStrategy(st, 'lucky_dog')) income += 2;
     // 无伤通关（官方）：胜利且无人倒下 → +1 金
     if (hasStrategy(st, 'no_damage') && allyDeaths === 0) income += 1;
+    // 长期主义：剩余胜场每次 +7 金
+    if ((st.environmentData.long_term ?? 0) > 0) {
+      income += 7;
+      st.environmentData.long_term--;
+    }
+    // 进化算法：胜利叠一层
+    if (hasEnvironment(st, 'evolution')) {
+      st.environmentData.evolution = (st.environmentData.evolution ?? 0) + 1;
+    }
+    // 深井角斗场：首次 5 连胜 → 财富宝钻（已有则 +15 金）
+    if (st.winStreak >= 5 && hasEnvironment(st, 'deep_pit') && !st.environmentData.deep_pit_done) {
+      st.environmentData.deep_pit_done = 1;
+      if (!st.wealthGem) {
+        st.wealthGem = true;
+        st.gemNew = true;
+      } else {
+        st.gold += 15;
+      }
+    }
   } else {
     st.lossStreak++;
     st.winStreak = 0;
@@ -338,6 +409,8 @@ export function resolveBattle(st: MatchState, win: boolean, ticks: number, limit
     st.gemNew = true;
   }
   gainExp(st, CFG.freeExpPerRound);
+  // 成功经验：8 级后每节点 +2 经验
+  if (hasEnvironment(st, 'success_exp') && st.level >= 8) gainExp(st, 2);
   st.gold += income;
   st.lastBattle = { win, ticks, limit, remaining };
   if (st.hp <= 0) {
@@ -358,15 +431,27 @@ export function advanceNode(st: MatchState): void {
     }
   }
   st.node++;
+  let planeJustChanged = false;
   if (st.node >= PLANES[st.plane].nodes.length) {
     st.plane++;
     st.node = 0;
+    planeJustChanged = true;
     if (st.plane >= PLANES.length) {
       st.phase = 'victory';
       return;
     }
   }
   const next = PLANES[st.plane].nodes[st.node];
+  // 人身意外险：首领节点开战前自动获得 1 件简易装备
+  if (next.kind === 'boss' && hasEnvironment(st, 'accident_insurance')) {
+    st.inventory.push(randomBasicEquip());
+  }
+  // 位面开始：投资环境三选一（位面首节点恒为战斗节点，采纳后进备战）
+  if (planeJustChanged && (next.kind === 'battle' || next.kind === 'boss')) {
+    st.environmentOffers = rollEnvironmentOffers();
+    st.phase = 'environment';
+    return;
+  }
   if (next.kind === 'reward') {
     st.rewards = rollRewards();
     st.phase = 'reward';
@@ -392,6 +477,8 @@ export function pickStrategy(st: MatchState, idx: number): void {
   if (st.phase !== 'strategy') return;
   const id = st.strategyOffers[idx];
   if (!id) return;
+  // 策略大师：采纳第 N 条时 +2×(N-1) 金
+  if (hasEnvironment(st, 'strategy_master')) st.gold += 2 * st.strategies.length;
   st.strategies.push(id);
   st.strategyOffers = [];
   applyInstantStrategy(st, id);

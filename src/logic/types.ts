@@ -296,7 +296,7 @@ export interface PlaneDef {
 
 // ================= 对局状态 =================
 
-export type Phase = 'prep' | 'battle' | 'reward' | 'strategy' | 'supplyResult' | 'gameOver' | 'victory';
+export type Phase = 'prep' | 'battle' | 'reward' | 'strategy' | 'environment' | 'supplyResult' | 'gameOver' | 'victory';
 
 export interface OwnedUnit {
   uid: string;
@@ -346,6 +346,11 @@ export interface MatchState {
   strategyOffers: string[];
   /** 策略计数器（超发货币节点数与失去数额 / 四费晋升待定 / 现金为王剩余场数等） */
   strategyData: Record<string, number>;
+  /** 已采纳的投资环境（独立于 strategies，不抬难度） */
+  environments: string[];
+  environmentOffers: string[];
+  /** 环境计数器（进化算法层数 / 长期主义剩余胜场等） */
+  environmentData: Record<string, number>;
   /** 免费刷新次数（策略/环境发放，reroll 优先消耗） */
   freeRerolls: number;
   /** 免费购买次数（策略发放，buyShop 优先消耗） */

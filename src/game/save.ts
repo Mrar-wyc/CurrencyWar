@@ -2,6 +2,7 @@ import { MATCH_CONFIG as CFG, PLANES } from '../data/stages';
 import { ALL_EQUIPS } from '../data/equipment';
 import { CHARACTERS } from '../data/characters';
 import { STRATEGIES } from '../data/strategies';
+import { ENVIRONMENTS } from '../data/environments';
 import type { MatchState } from '../logic/types';
 
 const KEY = 'currencywars_save_v1';
@@ -32,7 +33,7 @@ export function loadSave(): SaveData {
         merged.current = null; // 终局不复活（防 0 血死局续档）
       } else if (ph === 'battle') {
         merged.current.phase = 'prep';
-      } else if (ph !== 'prep' && ph !== 'reward' && ph !== 'strategy' && ph !== 'supplyResult') {
+      } else if (ph !== 'prep' && ph !== 'reward' && ph !== 'strategy' && ph !== 'environment' && ph !== 'supplyResult') {
         merged.current = null; // 未知 phase：弃档防软锁
       }
     }
@@ -58,6 +59,16 @@ export function migrateMatch(cur: MatchState): void {
   cur.wealthGem = cur.wealthGem === true;
   cur.gemGoldTick = typeof cur.gemGoldTick === 'number' && Number.isFinite(cur.gemGoldTick) ? cur.gemGoldTick : 0;
   if (cur.phase === 'strategy' && cur.strategyOffers.length === 0) cur.phase = 'prep';
+  // 投资环境：id 白名单过滤 + 计数器数值校验 + 空三选一回退
+  const envOk = new Set(ENVIRONMENTS.map(e => e.id));
+  const filterEnv = (v: unknown): string[] =>
+    Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === 'string' && envOk.has(x)))] : [];
+  cur.environments = filterEnv(cur.environments);
+  cur.environmentOffers = filterEnv(cur.environmentOffers);
+  cur.environmentData = cur.environmentData && typeof cur.environmentData === 'object' && !Array.isArray(cur.environmentData)
+    ? cur.environmentData
+    : {};
+  if (cur.phase === 'environment' && cur.environmentOffers.length === 0) cur.phase = 'prep';
   // 装备/角色 id 白名单：失效 id 会让 equipById/charById 抛异常崩坏界面
   const equipOk = new Set(ALL_EQUIPS.map(e => e.id));
   const charOk = new Set(CHARACTERS.map(c => c.id));
@@ -105,7 +116,7 @@ export function writeSave(data: SaveData): void {
 
 /** 备战/领奖/选策略阶段自动续档（深拷贝，避免存档被对局中的状态污染） */
 export function persistMatch(save: SaveData, st: MatchState): void {
-  if (st.phase === 'prep' || st.phase === 'reward' || st.phase === 'strategy' || st.phase === 'supplyResult') {
+  if (st.phase === 'prep' || st.phase === 'reward' || st.phase === 'strategy' || st.phase === 'environment' || st.phase === 'supplyResult') {
     save.current = structuredClone(st);
   } else if (st.phase === 'battle') {
     // 战斗中途退出：回退到该节点备战阶段

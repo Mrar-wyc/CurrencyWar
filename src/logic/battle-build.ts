@@ -4,6 +4,7 @@ import { equipById } from '../data/equipment';
 import { PLANES } from '../data/stages';
 import { computeTeamFlags } from './synergy';
 import { cashShieldPct, strategyBattleMods, strategyEnemyMult, strategyTeamFlags, strategyUnitMods, type StrategyBattleMods } from './strategy';
+import { environmentTeamFlags } from './environment';
 import { EMPTY_UNIT_FLAGS } from './types';
 import type { BattleNode, CombatUnit, MatchState, OwnedUnit, TeamFlags, UnitFlags } from './types';
 
@@ -187,6 +188,10 @@ export function buildBattleInput(st: MatchState): BattleInput {
   }
   // 投资策略：条件型全队加成 + 现金为王开战护盾
   for (const [k, v] of Object.entries(strategyTeamFlags(st))) {
+    (tf as unknown as Record<string, number>)[k] += v as number;
+  }
+  // 投资环境：特邀专家随行增益 + 进化算法叠层
+  for (const [k, v] of Object.entries(environmentTeamFlags(st))) {
     (tf as unknown as Record<string, number>)[k] += v as number;
   }
   tf.startShieldPct += cashShieldPct(st);

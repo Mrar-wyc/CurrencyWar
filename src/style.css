@@ -252,6 +252,7 @@ button.disabled { opacity: 0.45; }
 .np-dot.boss { background: #d090ff; width: 11px; height: 11px; }
 .np-dot.reward { background: var(--gold); }
 .np-dot.supply { background: #8fe3ff; }
+.np-dot.environment { background: #7fd8c8; width: 9px; height: 9px; border-radius: 50%; }
 .np-dot.strategy { background: #b48aff; }
 .np-dot.done { opacity: 0.4; }
 .np-dot.cur { outline: 2px solid var(--gold-text); outline-offset: 2.5px; }

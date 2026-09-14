@@ -34,8 +34,13 @@ function assertInvariants(st: MatchState): void {
     expect(st.strategyOffers).toHaveLength(3);
     expect(new Set(st.strategyOffers).size).toBe(3);
   }
+  if (st.phase === 'environment') {
+    expect(st.environmentOffers).toHaveLength(3);
+    expect(new Set(st.environmentOffers).size).toBe(3);
+  }
+  expect(st.environments.length).toBeLessThanOrEqual(3);
   // 阶段合法
-  expect(['prep', 'battle', 'reward', 'strategy', 'supplyResult', 'gameOver', 'victory']).toContain(st.phase);
+  expect(['prep', 'battle', 'reward', 'strategy', 'environment', 'supplyResult', 'gameOver', 'victory']).toContain(st.phase);
 }
 
 describe('soak 不变量', () => {

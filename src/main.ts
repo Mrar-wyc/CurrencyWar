@@ -10,6 +10,7 @@ import { renderPrep } from './ui/prep';
 import { renderBattle } from './ui/battle';
 import { renderGameOver, renderReward, renderSupply, renderVictory } from './ui/overlays';
 import { renderStrategy } from './ui/strategy';
+import { renderEnvironment } from './ui/environment';
 import { renderCodex } from './ui/codex';
 import { renderHelp } from './ui/help';
 import { clear, h } from './ui/dom';
@@ -162,6 +163,10 @@ function render(): void {
     case 'strategy':
       persistMatch(save, st);
       renderStrategy(stage, ctx);
+      break;
+    case 'environment':
+      persistMatch(save, st);
+      renderEnvironment(stage, ctx);
       break;
     case 'supplyResult':
       persistMatch(save, st);

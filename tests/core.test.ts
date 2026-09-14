@@ -20,6 +20,13 @@ import { loadSave, migrateMatch, persistMatch, type SaveData } from '../src/game
 import { strategyBattleMods } from '../src/logic/strategy';
 import type { CombatUnit, MatchState, OwnedUnit } from '../src/logic/types';
 
+/** 测试用：跳过开局环境三选一，直接进备战（环境逻辑有专测） */
+function newMatchPrep(): MatchState {
+  const st = newMatch();
+  if (st.phase === 'environment') st.phase = 'prep';
+  return st;
+}
+
 function mkUnit(charId: string, star: 1 | 2 | 3 = 1, slot: OwnedUnit['slot'] = null): OwnedUnit {
   return { uid: `t_${Math.random().toString(36).slice(2)}`, charId, star, slot, equips: [] };
 }
@@ -47,7 +54,7 @@ function mkEnemy(id: string, mul = 1): CombatUnit {
 
 describe('商店与购买', () => {
   it('新对局初始状态正确', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     expect(st.gold).toBe(8);
     expect(st.level).toBe(3);
     expect(st.hp).toBe(100);
@@ -58,7 +65,7 @@ describe('商店与购买', () => {
   });
 
   it('购买扣金币并进入备战席，商品置空', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.gold = 50;
     const idx = st.shop.findIndex(o => o.charId);
     const cid = st.shop[idx].charId!;
@@ -70,14 +77,14 @@ describe('商店与购买', () => {
   });
 
   it('金币不足时拒绝购买', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.gold = 0;
     const idx = st.shop.findIndex(o => o.charId && charById(o.charId).cost > 0);
     expect(buyShop(st, idx)).toBe('金币不足');
   });
 
   it('三个同名 1★ 自动合成 2★', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.gold = 100;
     st.shop = [{ charId: 'march7th' }, { charId: 'march7th' }, { charId: 'march7th' }, { charId: null }, { charId: null }];
     buyShop(st, 0);
@@ -90,7 +97,7 @@ describe('商店与购买', () => {
 
 describe('站位', () => {
   it('受等级限制上阵数量', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     const a = mkUnit('march7th'), b = mkUnit('danheng'), c = mkUnit('asta'), d = mkUnit('natasha');
     st.bench = [a, b, c, d];
     expect(placeUnit(st, a.uid, 'front', 0)).toBeNull();
@@ -102,7 +109,7 @@ describe('站位', () => {
   });
 
   it('撤回与交换', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     const a = mkUnit('march7th'), b = mkUnit('danheng');
     st.bench = [a, b];
     placeUnit(st, a.uid, 'front', 0);
@@ -117,7 +124,7 @@ describe('站位', () => {
   });
 
   it('同一角色不能同时上阵（前台/后台合计）', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     const a = mkUnit('march7th'), a2 = mkUnit('march7th'), b = mkUnit('danheng');
     st.bench = [a, a2, b];
     expect(placeUnit(st, a.uid, 'front', 0)).toBeNull();
@@ -136,7 +143,7 @@ describe('站位', () => {
 
 describe('经济与结算', () => {
   it('战斗胜利获得基础收入+利息+胜利金+连胜奖励', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.gold = 25; // 利息 2
     st.winStreak = 1;
     resolveBattle(st, true, 5, 14, 0);
@@ -146,7 +153,7 @@ describe('经济与结算', () => {
   });
 
   it('连胜奖励封顶 +3（官方）', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.gold = 0;
     st.winStreak = 5;
     resolveBattle(st, true, 5, 14, 0);
@@ -160,7 +167,7 @@ describe('经济与结算', () => {
   });
 
   it('战斗失败扣血并获得补偿', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.gold = 0;
     const hp0 = st.hp;
     resolveBattle(st, false, 14, 14, 3);
@@ -171,7 +178,7 @@ describe('经济与结算', () => {
   });
 
   it('生命归零进入失败', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.hp = 10;
     resolveBattle(st, false, 14, 14, 2);
     expect(st.hp).toBe(0);
@@ -179,7 +186,7 @@ describe('经济与结算', () => {
   });
 
   it('买经验可升级（官方经验表 3→4 需 4 exp）', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.gold = 20;
     expect(buyExp(st)).toBeNull(); // +4 exp：3级需4升4，剩0
     expect(st.level).toBe(4);
@@ -189,7 +196,7 @@ describe('经济与结算', () => {
 
 describe('装备', () => {
   it('穿戴/卸下与上限', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     const u = mkUnit('march7th');
     st.bench = [u];
     st.inventory = ['b_atk', 'b_def', 'b_hp', 'b_spd'];
@@ -205,14 +212,14 @@ describe('装备', () => {
   it('简易装备两两合成进阶装备', () => {
     expect(findCombine('b_atk', 'b_def')?.id).toBe('a_medal');
     expect(findCombine('b_atk', 'b_atk')?.id).toBe('a_dawn');
-    const st = newMatch();
+    const st = newMatchPrep();
     st.inventory = ['b_atk', 'b_def'];
     expect(combineEquips(st, 'b_atk', 'b_def')).toBeNull();
     expect(st.inventory).toEqual(['a_medal']);
   });
 
   it('出售返还金币并卸下装备', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.gold = 0;
     const u = mkUnit('himeko');
     u.equips = ['b_atk'];
@@ -270,7 +277,7 @@ describe('后台机制', () => {
   });
 
   it('buildBattleInput 把后台角色编译为 backers，前台不含后台单位', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     const f = mkUnit('march7th', 1, { row: 'front', index: 0 });
     const b = mkUnit('seele', 1, { row: 'back', index: 0 });
     st.bench = [f, b];
@@ -463,7 +470,7 @@ describe('战斗引擎', () => {
 
 describe('节点推进', () => {
   it('胜利后推进到策略节点，采纳后进入奖励节点', () => {
-    const st: MatchState = newMatch();
+    const st: MatchState = newMatchPrep();
     advanceNode(st);
     expect(st.node).toBe(1);
     expect(st.phase).toBe('strategy');
@@ -476,7 +483,7 @@ describe('节点推进', () => {
   });
 
   it('通关三位面进入胜利', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.plane = 2;
     st.node = 7; // 最后一个节点（首领）
     advanceNode(st);
@@ -487,7 +494,7 @@ describe('节点推进', () => {
 describe('投资策略', () => {
   /** 构造一个处于策略选择阶段的对局 */
   function strategyPhase(offers: string[]): MatchState {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.phase = 'strategy';
     st.strategyOffers = offers;
     return st;
@@ -593,7 +600,7 @@ describe('投资策略', () => {
   });
 
   it('招财狗：每胜 +2 金', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.strategies = ['lucky_dog'];
     st.gold = 0;
     st.winStreak = 1;
@@ -603,7 +610,7 @@ describe('投资策略', () => {
   });
 
   it('无伤通关：胜利且无人倒下 +1 金（常驻）', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.strategies = ['no_damage'];
     st.gold = 0;
     resolveBattle(st, true, 5, 14, 0, 1); // 有人倒下：不触发
@@ -631,7 +638,7 @@ describe('投资策略', () => {
   });
 
   it('条件加成：中产阶级(全队) / 人海(基础+满员) / 独狼与三三三(按角色)', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     // 中产阶级：2 名 2★
     st.strategies = ['middle_class'];
     st.bench = [mkUnit('march7th', 2), mkUnit('danheng', 2)];
@@ -673,7 +680,7 @@ describe('投资策略', () => {
   });
 
   it('免费刷新/免费购买资源：reroll 与 buyShop 优先消耗', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.freeRerolls = 2;
     st.freeBuys = 1;
     st.gold = 0;
@@ -689,7 +696,7 @@ describe('投资策略', () => {
   });
 
   it('敌人数值系数：难度削减/伟大征服/策略难度加成', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     expect(strategyEnemyMult(st)).toBeCloseTo(1);
     st.strategies = ['simple_mode', 'difficulty_modifier'];
     expect(strategyEnemyMult(st)).toBeCloseTo(0.75);
@@ -755,7 +762,7 @@ describe('星徽与装备池', () => {
   });
 
   it('星徽穿戴者加入羁绊：计数 +1 并激活档位', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     const u = mkUnit('march7th');
     st.bench = [u];
     st.inventory = ['e_express'];
@@ -770,7 +777,7 @@ describe('星徽与装备池', () => {
   });
 
   it('背包中的星徽不计入羁绊（仅穿戴中生效）', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     const u = mkUnit('march7th');
     u.slot = { row: 'front', index: 0 };
     st.board = [u];
@@ -797,7 +804,7 @@ describe('星徽与装备池', () => {
 
 describe('财富宝钻', () => {
   it('首个首领战胜利获得宝钻，后台位扩到 5', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.plane = 0;
     st.node = 5;
     expect(PLANES[0].nodes[5].kind).toBe('boss');
@@ -805,13 +812,15 @@ describe('财富宝钻', () => {
     resolveBattle(st, true, 0, 10, 0, 0);
     expect(st.wealthGem).toBe(true);
     expect(backCapacity(st)).toBe(5);
+    // 位面切换后进入环境三选一，站位操作需备战阶段
+    st.phase = 'prep';
     const u = mkUnit('march7th');
     st.bench = [u];
     expect(placeUnit(st, u.uid, 'back', 4)).toBeNull();
   });
 
   it('普通战斗胜利不发放宝钻', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.plane = 0;
     st.node = 0;
     resolveBattle(st, true, 0, 10, 0, 0);
@@ -820,7 +829,7 @@ describe('财富宝钻', () => {
   });
 
   it('每 3 个备战阶段 +1 金', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.wealthGem = true;
     st.gemGoldTick = 0;
     const g0 = st.gold;
@@ -935,7 +944,7 @@ describe('敌人词缀', () => {
   });
 
   it('决战在即：首领倒计时 ×0.75 / 遭遇 ×1.2（battle-build 层）', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     // 位面二首领节点（showdown）
     st.plane = 1; st.node = 7;
     st.board = [mkUnit('march7th', 1, { row: 'front', index: 0 })];
@@ -998,7 +1007,7 @@ const __lsStore = new Map<string, string>();
 
 describe('存档迁移与防御', () => {
   it('非法装备/角色 id 按白名单过滤，不抛异常', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.inventory = ['b_atk', 'ghost_equip', 'e_express'];
     st.bench = [
       { uid: 'a', charId: 'march7th', star: 1, slot: null, equips: ['ghost_equip', 'b_hp'] },
@@ -1016,7 +1025,7 @@ describe('存档迁移与防御', () => {
   });
 
   it('plane/node 越界回起点；gameOver/未知 phase 弃档', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.plane = 9; st.node = 99;
     migrateMatch(st);
     expect(st.plane).toBe(0);
@@ -1034,7 +1043,7 @@ describe('存档迁移与防御', () => {
   });
 
   it('reward/supplyResult 阶段可持久化并完整恢复', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.phase = 'reward';
     st.rewards = [{ kind: 'equip', equipId: 'b_atk' }];
     const data: SaveData = { rank: 0, totalWins: 0, totalRuns: 0, bestStreak: 0, totalThreeStars: 0, current: null };
@@ -1049,21 +1058,21 @@ describe('存档迁移与防御', () => {
 describe('复盘补测：合成与策略映射', () => {
   it('同 id 两件简易装备可合成（×2 配方）', () => {
     expect(findCombine('b_atk', 'b_atk')?.id).toBe('a_dawn');
-    const st = newMatch();
+    const st = newMatchPrep();
     st.inventory = ['b_atk', 'b_atk'];
     expect(combineEquips(st, 'b_atk', 'b_atk')).toBeNull();
     expect(st.inventory).toEqual(['a_dawn']);
   });
 
   it('同 id 合成不误删中间物品（[X,Y,X] 场景）', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.inventory = ['b_atk', 'b_hp', 'b_atk'];
     expect(combineEquips(st, 'b_atk', 'b_atk')).toBeNull();
     expect(st.inventory).toEqual(['b_hp', 'a_dawn']);
   });
 
   it('strategyBattleMods：当头一棒 nuke 与风暴骑士 0.7 映射', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.strategies = ['head_bash'];
     expect(strategyBattleMods(st).nuke).toEqual({ mult: 10, defPct: -0.30, turns: 2 });
     st.strategies = ['storm_knight'];
@@ -1071,12 +1080,12 @@ describe('复盘补测：合成与策略映射', () => {
   });
 
   it('pickStrategy 全链路：ootd 采纳、奋斗协议买经验扣血', () => {
-    const st = newMatch();
+    const st = newMatchPrep();
     st.phase = 'strategy';
     st.strategyOffers = ['ootd', 'lucky_dog', 'middle_class'];
     pickStrategy(st, 0);
     expect(st.strategies).toContain('ootd');
-    const st2 = newMatch();
+    const st2 = newMatchPrep();
     st2.phase = 'strategy';
     st2.strategyOffers = ['struggle_protocol', 'ootd', 'lucky_dog'];
     pickStrategy(st2, 0);
