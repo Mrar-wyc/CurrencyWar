@@ -7,7 +7,7 @@ import {
   ackSupply, buyExp, buyShop, combineEquips, equipItemTo, newMatch, pickReward,
   pickStrategy, placeUnit, recallUnit, reroll, startBattle, resolveBattle
 } from '../src/game/match';
-import { botPrep } from './bot';
+import { botPrep , BOT_STRATEGY_PREFER } from './bot';
 import type { MatchState } from '../src/logic/types';
 
 describe('单局诊断', () => {
@@ -39,9 +39,8 @@ describe('单局诊断', () => {
         if (idx < 0) idx = st.rewards.findIndex(r => r.kind === 'equip');
         pickReward(st, idx >= 0 ? idx : 0);
       } else if (st.phase === 'strategy') {
-        // 稳健偏好（与 bot 一致），保证诊断能走完整局
-        const prefer = ['lucky_dog', 'simple_mode', 'promo4', 'hyperinflation', 'middle_class'];
-        const idx = st.strategyOffers.findIndex(id => prefer.includes(id));
+        // 稳健偏好（与 bot 共享 BOT_STRATEGY_PREFER），保证诊断能走完整局
+        const idx = st.strategyOffers.findIndex(id => BOT_STRATEGY_PREFER.includes(id));
         pickStrategy(st, idx >= 0 ? idx : 0);
       } else if (st.phase === 'supplyResult') {
         ackSupply(st);

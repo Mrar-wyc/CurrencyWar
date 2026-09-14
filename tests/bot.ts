@@ -8,6 +8,9 @@ import {
 } from '../src/game/match';
 import type { MatchState } from '../src/logic/types';
 
+/** 稳健策略偏好（bot 与 diag 共用，防两处漂移） */
+export const BOT_STRATEGY_PREFER: readonly string[] = ['lucky_dog', 'simple_mode', 'promo4', 'hyperinflation', 'middle_class'];
+
 /**
  * 自动对局机器人（平衡性验证用）：
  * 策略偏保守 —— 优先买经验到 7 级、买光能买得起的棋子、
@@ -101,8 +104,7 @@ export function playMatch(maxSteps = 400, onStep?: (st: MatchState) => void): Bo
       }
       case 'strategy': {
         // 稳健偏好：经济/减难/晋升优先，否则取第一个
-        const prefer = ['lucky_dog', 'simple_mode', 'promo4', 'hyperinflation', 'middle_class'];
-        const idx = st.strategyOffers.findIndex(id => prefer.includes(id));
+        const idx = st.strategyOffers.findIndex(id => BOT_STRATEGY_PREFER.includes(id));
         pickStrategy(st, idx >= 0 ? idx : 0);
         break;
       }
