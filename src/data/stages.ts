@@ -42,7 +42,7 @@ export const PLANES: PlaneDef[] = [
       {
         kind: 'battle',
         battle: {
-          name: '遭遇战 · 魔阴身巡逻队', enemyActionLimit: 14,
+          name: '遭遇战 · 魔阴身巡逻队', enemyActionLimit: 14, affixes: ['energy_leak'],
           enemies: [{ id: 'mara_soldier', mul: 1.9, count: 2 }, { id: 'mara_archer', mul: 1.9, count: 2 }]
         }
       },
@@ -51,14 +51,14 @@ export const PLANES: PlaneDef[] = [
       {
         kind: 'battle',
         battle: {
-          name: '遭遇战 · 机兵哨站', enemyActionLimit: 14,
+          name: '遭遇战 · 机兵哨站', enemyActionLimit: 14, affixes: ['extra_strike'],
           enemies: [{ id: 'automaton_bear', mul: 1.9 }, { id: 'automaton_drill', mul: 1.9, count: 2 }]
         }
       },
       {
         kind: 'battle',
         battle: {
-          name: '遭遇战 · 虚卒先锋', enemyActionLimit: 14,
+          name: '遭遇战 · 虚卒先锋', enemyActionLimit: 14, affixes: ['vengeance'],
           enemies: [{ id: 'voidranger', mul: 1.9, count: 2 }, { id: 'mara_archer', mul: 1.9, count: 2 }]
         }
       },
@@ -67,7 +67,7 @@ export const PLANES: PlaneDef[] = [
       {
         kind: 'boss',
         battle: {
-          name: '首领 · 可可利亚，虚妄之母', enemyActionLimit: 18,
+          name: '首领 · 可可利亚，虚妄之母', enemyActionLimit: 18, affixes: ['tough_skin', 'showdown'],
           enemies: [{ id: 'automaton_drill', mul: 1.9, count: 2 }, { id: 'boss_p2', mul: 1.15 }]
         }
       }
@@ -79,7 +79,7 @@ export const PLANES: PlaneDef[] = [
       {
         kind: 'battle',
         battle: {
-          name: '遭遇战 · 虚卒军团', enemyActionLimit: 14,
+          name: '遭遇战 · 虚卒军团', enemyActionLimit: 14, affixes: ['adrenaline'],
           enemies: [{ id: 'voidranger', mul: 2.9, count: 2 }, { id: 'automaton_bear', mul: 2.9 }]
         }
       },
@@ -88,7 +88,7 @@ export const PLANES: PlaneDef[] = [
       {
         kind: 'battle',
         battle: {
-          name: '遭遇战 · 蚕食者之群', enemyActionLimit: 14,
+          name: '遭遇战 · 蚕食者之群', enemyActionLimit: 14, affixes: ['bombard'],
           enemies: [{ id: 'spawn', mul: 2.9, count: 2 }, { id: 'mara_soldier', mul: 2.9, count: 2 }]
         }
       },
@@ -97,14 +97,14 @@ export const PLANES: PlaneDef[] = [
       {
         kind: 'battle',
         battle: {
-          name: '遭遇战 · 精锐突击', enemyActionLimit: 14,
+          name: '遭遇战 · 精锐突击', enemyActionLimit: 14, affixes: ['heavy_steps', 'weakness'],
           enemies: [{ id: 'spawn', mul: 3.1 }, { id: 'voidranger', mul: 3.1, count: 2 }, { id: 'automaton_bear', mul: 3.1 }]
         }
       },
       {
         kind: 'boss',
         battle: {
-          name: '首领 · 末日兽', enemyActionLimit: 20,
+          name: '首领 · 末日兽', enemyActionLimit: 20, affixes: ['undying'],
           enemies: [{ id: 'spawn', mul: 2.0, count: 2 }, { id: 'boss_p3', mul: 1.0 }]
         }
       }

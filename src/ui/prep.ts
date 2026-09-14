@@ -1,4 +1,5 @@
 import { charById } from '../data/characters';
+import { affixById } from '../data/affixes';
 import { equipById } from '../data/equipment';
 import { MATCH_CONFIG as CFG, PLANES } from '../data/stages';
 import { GRADE_COLORS, GRADE_NAMES, strategyById } from '../data/strategies';
@@ -355,6 +356,20 @@ function intelPanel(ctx: AppCtx): HTMLElement {
       ));
     }
     panel.append(h('div', { class: 'hint' }, '行动值倒计时制：双方每次行动都消耗行动值，耗尽判负'));
+    // 晋升词缀与难度值（§23 难度公式：位面基础 + 词缀点 + 策略点）
+    const affixList = b.affixes ?? [];
+    if (affixList.length) {
+      const base = [0, 10, 20][st.plane] ?? 0;
+      const affixPts = affixList.reduce((s, id) => s + affixById(id).points, 0);
+      const stratPts = st.strategies.reduce((s, id) => s + (strategyById(id).grade === 'gold' ? 3 : 0), 0);
+      panel.append(h('div', { class: 'intel-affixes' },
+        h('span', { class: 'intel-diff' }, `💀 难度 ${base + affixPts + stratPts}`),
+        ...affixList.map(id => {
+          const a = affixById(id);
+          return h('span', { class: 'intel-affix', style: { color: a.color }, title: a.desc }, `${a.icon} ${a.name} +${a.points}`);
+        })
+      ));
+    }
     panel.append(h('div', { class: 'hint' }, `战败扣 ${node.kind === 'boss' ? CFG.loseHpBoss : CFG.loseHpNormal} 点小队生命`));
   } else if (node.kind === 'strategy') {
     panel.append(h('div', { class: 'intel-node' }, '📈 投资策略'));

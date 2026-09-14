@@ -524,6 +524,9 @@ button.disabled { opacity: 0.45; }
 .intel-enemy { font-size: 16.5px; margin-bottom: 5px; color: var(--txt); font-weight: 700;
   display: flex; align-items: center; gap: 6px; }
 .intel-strategy { font-size: 15.5px; color: var(--txt); margin-bottom: 5px; font-weight: 700; }
+.intel-affixes { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; align-items: center; }
+.intel-diff { font-size: 15px; font-weight: 900; color: var(--violet-ink); background: rgba(255,255,255,0.9); border-radius: 8px; padding: 2px 8px; }
+.intel-affix { font-size: 13.5px; font-weight: 700; background: rgba(255,255,255,0.9); border-radius: 8px; padding: 2px 7px; }
 
 /* ================= 战斗界面 ================= */
 .battle-head {
